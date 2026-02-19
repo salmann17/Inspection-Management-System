@@ -73,12 +73,11 @@ class Inspection extends Model
         'charge_to_customer'    => false,
     ];
 
-    // Auto-set workflow_status_group setiap kali save
-    protected static function booted(): void
+    // Auto-set workflow_status_group whenever status is set
+    public function setStatusAttribute(string $value): void
     {
-        static::saving(function (Inspection $inspection) {
-            $inspection->workflow_status_group = self::STATUS_TO_GROUP[$inspection->status] ?? 'OPEN';
-        });
+        $this->attributes['status'] = $value;
+        $this->attributes['workflow_status_group'] = self::STATUS_TO_GROUP[$value] ?? 'OPEN';
     }
 
     public function items()
