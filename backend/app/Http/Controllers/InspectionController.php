@@ -9,7 +9,7 @@ class InspectionController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Inspection::orderByDesc('created_at');
+        $query = Inspection::with('items.lots')->orderByDesc('created_at');
 
         if ($request->filled('status')) {
             $group = strtoupper($request->query('status'));
