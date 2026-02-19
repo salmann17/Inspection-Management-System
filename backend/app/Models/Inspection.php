@@ -73,12 +73,11 @@ class Inspection extends Model
         'charge_to_customer'    => false,
     ];
 
-    // Auto-set workflow_status_group setiap kali save
-    protected static function booted(): void
+    // Auto-set workflow_status_group whenever status is set
+    public function setStatusAttribute(string $value): void
     {
-        static::saving(function (Inspection $inspection) {
-            $inspection->workflow_status_group = self::STATUS_TO_GROUP[$inspection->status] ?? 'OPEN';
-        });
+        $this->attributes['status'] = $value;
+        $this->attributes['workflow_status_group'] = self::STATUS_TO_GROUP[$value] ?? 'OPEN';
     }
 
     public function items()
@@ -109,10 +108,11 @@ class Inspection extends Model
     public static function indexDefinitions(): array
     {
         return [
-            ['key' => ['request_no' => 1], 'options' => ['unique' => true, 'name' => 'request_no_unique']],
+            ['key' => ['request_no' => 1],                              'options' => ['unique' => true, 'name' => 'request_no_unique']],
+            ['key' => ['status' => 1],                                  'options' => ['name' => 'status_idx']],
+            ['key' => ['created_at' => -1],                             'options' => ['name' => 'created_at_idx']],
             ['key' => ['workflow_status_group' => 1, 'created_at' => -1], 'options' => ['name' => 'group_created_idx']],
-            ['key' => ['status' => 1], 'options' => ['name' => 'status_idx']],
-            ['key' => ['service_type_category' => 1], 'options' => ['name' => 'service_type_category_idx']],
+            ['key' => ['service_type_category' => 1],                   'options' => ['name' => 'service_type_category_idx']],
         ];
     }
 }
