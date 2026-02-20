@@ -80,4 +80,44 @@ class InspectionController extends Controller
             'inspection_id' => $inspection->_id,
         ], 201);
     }
+
+    public function show(string $id)
+    {
+        $inspection = Inspection::with('items.lots')->where('_id', $id)->first();
+
+        if (!$inspection) {
+            return response()->json(['message' => 'Inspection not found.'], 404);
+        }
+
+        return response()->json([
+            'id'                        => $inspection->id,
+            'inspection_no'             => $inspection->request_no,
+            'service_type'              => $inspection->service_type_category,
+            'scope_of_work'             => $inspection->scope_of_work_code,
+            'location'                  => $inspection->location,
+            'estimated_completion_date' => $inspection->estimated_completion_date?->toDateString(),
+            'related_to'                => $inspection->related_to,
+            'charge_to_customer'        => $inspection->charge_to_customer,
+            'customer_name'             => $inspection->customer_name,
+            'status'                    => $inspection->status,
+            'workflow_status_group'     => $inspection->workflow_status_group,
+            'total_items'               => $inspection->total_items,
+            'total_lots'                => $inspection->total_lots,
+            'created_at'                => $inspection->created_at?->toDateTimeString(),
+            'items'                     => $inspection->items->map(fn ($item) => [
+                'id'           => $item->id,
+                'description'  => $item->item_name,
+                'qty_required' => $item->qty_required,
+                'lots'         => $item->lots->map(fn ($lot) => [
+                    'id'            => $lot->id,
+                    'lot'           => $lot->lot,
+                    'allocation'    => $lot->allocation,
+                    'owner'         => $lot->owner,
+                    'condition'     => $lot->condition,
+                    'available_qty' => $lot->available_qty,
+                    'sample_qty'    => $lot->sample_qty,
+                ]),
+            ]),
+        ]);
+    }
 }

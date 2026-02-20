@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use InvalidArgumentException;
 use MongoDB\Laravel\Eloquent\Model;
 
 class Inspection extends Model
@@ -9,14 +10,22 @@ class Inspection extends Model
     protected $connection = 'mongodb';
     protected $collection = 'inspections';
 
-    // Status values
+    // Granular status values
     const STATUS_NEW             = 'NEW';
     const STATUS_IN_PROGRESS     = 'IN_PROGRESS';
     const STATUS_READY_TO_REVIEW = 'READY_TO_REVIEW';
     const STATUS_APPROVED        = 'APPROVED';
     const STATUS_COMPLETED       = 'COMPLETED';
 
-    // Tab groups
+    const ALLOWED_STATUSES = [
+        self::STATUS_NEW,
+        self::STATUS_IN_PROGRESS,
+        self::STATUS_READY_TO_REVIEW,
+        self::STATUS_APPROVED,
+        self::STATUS_COMPLETED,
+    ];
+
+    // Workflow tab groups (OPEN / FOR_REVIEW / COMPLETED)
     const GROUP_OPEN       = 'OPEN';
     const GROUP_FOR_REVIEW = 'FOR_REVIEW';
     const GROUP_COMPLETED  = 'COMPLETED';
@@ -74,11 +83,15 @@ class Inspection extends Model
         'charge_to_customer'    => false,
     ];
 
-    // Auto-set workflow_status_group whenever status is set
+    // Auto-set workflow_status_group whenever status is set; reject unknown values
     public function setStatusAttribute(string $value): void
     {
-        $this->attributes['status'] = $value;
-        $this->attributes['workflow_status_group'] = self::STATUS_TO_GROUP[$value] ?? 'OPEN';
+        if (!in_array($value, self::ALLOWED_STATUSES, true)) {
+            throw new InvalidArgumentException("Invalid inspection status: {$value}");
+        }
+
+        $this->attributes['status']                = $value;
+        $this->attributes['workflow_status_group'] = self::STATUS_TO_GROUP[$value];
     }
 
     public function items()
