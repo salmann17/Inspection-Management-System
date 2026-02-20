@@ -15,11 +15,13 @@ class InspectionLot extends Model
         'allocation',
         'owner',
         'condition',
+        'available_qty',
         'sample_qty',
     ];
 
     protected $casts = [
-        'sample_qty' => 'integer',
+        'available_qty' => 'integer',
+        'sample_qty'    => 'integer',
     ];
 
     public function inspectionItem()

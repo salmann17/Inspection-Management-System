@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Inspection;
+use App\Models\InspectionItem;
+use App\Models\InspectionLot;
 use Illuminate\Http\Request;
 
 class InspectionController extends Controller
@@ -26,5 +28,56 @@ class InspectionController extends Controller
                 'total'        => $paginated->total(),
             ],
         ]);
+    }
+
+    public function store(Request $request)
+    {
+        $data = $request->validate([
+            'service_type'         => 'required|string',
+            'scope_of_work'        => 'required|string',
+            'items'                => 'required|array|min:1',
+            'items.*.description'  => 'required|string',
+            'items.*.qty_required' => 'required|integer|min:1',
+            'items.*.lots'         => 'sometimes|array',
+        ]);
+
+        $inspection = Inspection::create([
+            'request_no'                => Inspection::generateRequestNo(),
+            'service_type_category'     => $data['service_type'],
+            'scope_of_work_code'        => $data['scope_of_work'],
+            'location'                  => $request->input('location'),
+            'estimated_completion_date' => $request->input('estimated_completion_date'),
+            'related_to'                => $request->input('related_to'),
+            'charge_to_customer'        => $request->boolean('charge_to_customer'),
+            'customer_name'             => $request->input('customer_name'),
+            'status'                    => Inspection::STATUS_NEW,
+            'total_items'               => count($data['items']),
+            'total_lots'                => collect($data['items'])->sum(fn ($i) => count($i['lots'] ?? [])),
+        ]);
+
+        foreach ($data['items'] as $itemData) {
+            $item = InspectionItem::create([
+                'inspection_id' => $inspection->_id,
+                'item_name'     => $itemData['description'],
+                'qty_required'  => $itemData['qty_required'],
+            ]);
+
+            foreach ($itemData['lots'] ?? [] as $lotData) {
+                InspectionLot::create([
+                    'inspection_item_id' => $item->_id,
+                    'lot'                => $lotData['lot'] ?? null,
+                    'allocation'         => $lotData['allocation'] ?? null,
+                    'owner'              => $lotData['owner'] ?? null,
+                    'condition'          => $lotData['condition'] ?? null,
+                    'available_qty'      => $lotData['available_qty'] ?? 0,
+                    'sample_qty'         => $lotData['sample_qty'] ?? 0,
+                ]);
+            }
+        }
+
+        return response()->json([
+            'success'       => true,
+            'inspection_id' => $inspection->_id,
+        ], 201);
     }
 }
