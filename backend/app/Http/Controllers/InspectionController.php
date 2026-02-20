@@ -120,4 +120,32 @@ class InspectionController extends Controller
             ]),
         ]);
     }
+
+    public function updateStatus(string $id, Request $request)
+    {
+        $request->validate(['status' => 'required|string']);
+
+        $inspection = Inspection::where('_id', $id)->first();
+
+        if (!$inspection) {
+            return response()->json(['message' => 'Inspection not found.'], 404);
+        }
+
+        $target  = strtoupper($request->input('status'));
+        $current = $inspection->workflow_status_group;
+        $allowed = Inspection::GROUP_TRANSITIONS[$current] ?? [];
+
+        if (!in_array($target, $allowed, true)) {
+            return response()->json(['message' => 'Invalid status transition.'], 400);
+        }
+
+        $inspection->status = Inspection::GROUP_TO_STATUS[$target];
+        $inspection->save();
+
+        return response()->json([
+            'id'                    => $inspection->id,
+            'status'                => $inspection->status,
+            'workflow_status_group' => $inspection->workflow_status_group,
+        ]);
+    }
 }

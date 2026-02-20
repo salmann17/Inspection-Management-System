@@ -39,6 +39,19 @@ class Inspection extends Model
         'COMPLETED'       => 'COMPLETED',
     ];
 
+    // Valid group-level transitions (what the API accepts)
+    const GROUP_TRANSITIONS = [
+        'OPEN'       => ['FOR_REVIEW'],
+        'FOR_REVIEW' => ['COMPLETED'],
+        'COMPLETED'  => [],
+    ];
+
+    // Representative internal status when moving to a group
+    const GROUP_TO_STATUS = [
+        'FOR_REVIEW' => 'READY_TO_REVIEW',
+        'COMPLETED'  => 'COMPLETED',
+    ];
+
     // Allowed transitions: from → [to, to]
     const TRANSITIONS = [
         'NEW'             => ['IN_PROGRESS', 'READY_TO_REVIEW'],
