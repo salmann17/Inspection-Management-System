@@ -18,15 +18,13 @@
       <button class="btn-primary">Save</button>
     </div>
 
-    <!-- Main card -->
-    <div class="card">
-      <!-- Card section title -->
+    <!-- ── Inspection Header card ─────────────────────────────── -->
+    <div class="card" style="margin-bottom: 20px">
       <div class="section-title">Inspection Header</div>
 
       <div class="form-layout">
-        <!-- LEFT: main fields -->
         <div class="form-fields">
-          <!-- Row 1 -->
+          <!-- Service Type + Scope of Work -->
           <div class="form-row">
             <div class="field">
               <label>Service Type <span class="req">*</span></label>
@@ -37,10 +35,9 @@
                 <option value="ON_SPOT">On Spot</option>
               </select>
             </div>
-
             <div class="field">
               <label>Scope of Work <span class="req">*</span></label>
-              <select v-model="form.scope_of_work" :disabled="!form.service_type" @change="onScopeChange">
+              <select v-model="form.scope_of_work" :disabled="!form.service_type">
                 <option value="">— Select —</option>
                 <option v-for="s in filteredScopes" :key="s.code" :value="s.code">
                   {{ s.name }}
@@ -57,26 +54,24 @@
             </div>
           </div>
 
-          <!-- Row 2 -->
+          <!-- Location + Date -->
           <div class="form-row">
             <div class="field">
               <label>Location</label>
               <input v-model="form.location" type="text" placeholder="e.g. Warehouse A" />
             </div>
-
             <div class="field">
               <label>Estimated Completion Date</label>
               <input v-model="form.estimated_completion_date" type="date" />
             </div>
           </div>
 
-          <!-- Row 3 -->
+          <!-- Related To + Charge to Customer -->
           <div class="form-row">
             <div class="field">
               <label>Related To</label>
               <input v-model="form.related_to" type="text" placeholder="e.g. Work Order / PO No." />
             </div>
-
             <div class="field">
               <label>Charge to Customer?</label>
               <div class="toggle-row">
@@ -89,7 +84,7 @@
             </div>
           </div>
 
-          <!-- Customer name (conditional) -->
+          <!-- Customer Name (conditional) -->
           <div class="form-row" v-if="form.charge_to_customer">
             <div class="field">
               <label>Customer Name <span class="req">*</span></label>
@@ -98,11 +93,84 @@
           </div>
         </div>
 
-        <!-- RIGHT: status panel -->
+        <!-- Status panel -->
         <div class="status-panel">
           <div class="status-label">Status</div>
-          <div class="status-badge draft">Draft</div>
+          <div class="status-badge-draft">Draft</div>
           <p class="status-hint">Status is set automatically and cannot be changed manually.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Order Information card ─────────────────────────────── -->
+    <div class="card">
+      <div class="section-header">
+        <div class="section-title" style="margin-bottom: 0; border: none; padding: 0">Order Information</div>
+        <button class="btn-add-item" @click="addItem">+ Add Item</button>
+      </div>
+
+      <!-- Empty state -->
+      <div v-if="form.items.length === 0" class="items-empty">
+        No items added yet. Click "+ Add Item" to begin.
+      </div>
+
+      <!-- Item list -->
+      <div v-for="(item, itemIdx) in form.items" :key="itemIdx" class="item-block">
+        <!-- Item header row -->
+        <div class="item-header">
+          <span class="item-number">Item {{ itemIdx + 1 }}</span>
+          <button class="btn-remove" @click="removeItem(itemIdx)">✕ Remove</button>
+        </div>
+
+        <!-- Item fields -->
+        <div class="form-row" style="margin-bottom: 14px">
+          <div class="field">
+            <label>Item Description <span class="req">*</span></label>
+            <input v-model="item.description" type="text" placeholder="e.g. Carbon Steel Pipe 6&quot; Sch40" />
+          </div>
+          <div class="field">
+            <label>Qty Required <span class="req">*</span></label>
+            <input v-model.number="item.qty_required" type="number" min="0" placeholder="0" />
+          </div>
+        </div>
+
+        <!-- Lots section -->
+        <div class="lots-section">
+          <div class="lots-header">
+            <span class="lots-label">Lots</span>
+            <button class="btn-add-lot" @click="addLot(itemIdx)">+ Add Lot</button>
+          </div>
+
+          <div v-if="item.lots.length === 0" class="lots-empty">
+            No lots added. Click "+ Add Lot".
+          </div>
+
+          <table v-else class="lots-table">
+            <thead>
+              <tr>
+                <th>Lot</th>
+                <th>Allocation</th>
+                <th>Owner</th>
+                <th>Condition</th>
+                <th>Avail. Qty</th>
+                <th>Sample Qty</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(lot, lotIdx) in item.lots" :key="lotIdx">
+                <td><input v-model="lot.lot"                   type="text"   placeholder="LOT-00001" /></td>
+                <td><input v-model="lot.allocation"            type="text"   placeholder="PROJECT-ALPHA" /></td>
+                <td><input v-model="lot.owner"                 type="text"   placeholder="OWNER-COMPANY" /></td>
+                <td><input v-model="lot.condition"             type="text"   placeholder="NEW" /></td>
+                <td><input v-model.number="lot.available_qty"  type="number" readonly placeholder="0" class="readonly" /></td>
+                <td><input v-model.number="lot.sample_qty"     type="number" min="0"  placeholder="0" /></td>
+                <td>
+                  <button class="btn-remove-lot" @click="removeLot(itemIdx, lotIdx)">✕</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -113,30 +181,31 @@
 import { ref, computed } from 'vue'
 
 const form = ref({
-  service_type:               '',
-  scope_of_work:              '',
-  location:                   '',
-  estimated_completion_date:  '',
-  related_to:                 '',
-  charge_to_customer:         false,
-  customer_name:              '',
+  service_type:              '',
+  scope_of_work:             '',
+  location:                  '',
+  estimated_completion_date: '',
+  related_to:                '',
+  charge_to_customer:        false,
+  customer_name:             '',
+  items:                     [],
 })
 
-// Static scope data (will come from API later)
+// ── Master data (static for now) ─────────────────────────────────
+
 const allScopes = [
-  { code: 'SOW-NA-001', name: 'Inbound Quality Inspection',    parent: 'NEW_ARRIVAL' },
-  { code: 'SOW-NA-002', name: 'Documentation Verification',    parent: 'NEW_ARRIVAL' },
-  { code: 'SOW-NA-003', name: 'Packaging Integrity Check',     parent: 'NEW_ARRIVAL' },
-  { code: 'SOW-NA-004', name: 'Quantity Verification',         parent: 'NEW_ARRIVAL' },
-  { code: 'SOW-MT-001', name: 'Preventive Maintenance Check',  parent: 'MAINTENANCE'  },
-  { code: 'SOW-MT-002', name: 'Corrective Repair Inspection',  parent: 'MAINTENANCE'  },
-  { code: 'SOW-MT-003', name: 'Calibration Verification',      parent: 'MAINTENANCE'  },
-  { code: 'SOW-OS-001', name: 'Visual Spot Check',             parent: 'ON_SPOT'      },
-  { code: 'SOW-OS-002', name: 'Functional Spot Test',          parent: 'ON_SPOT'      },
-  { code: 'SOW-OS-003', name: 'Safety Compliance Check',       parent: 'ON_SPOT'      },
+  { code: 'SOW-NA-001', name: 'Inbound Quality Inspection',   parent: 'NEW_ARRIVAL' },
+  { code: 'SOW-NA-002', name: 'Documentation Verification',   parent: 'NEW_ARRIVAL' },
+  { code: 'SOW-NA-003', name: 'Packaging Integrity Check',    parent: 'NEW_ARRIVAL' },
+  { code: 'SOW-NA-004', name: 'Quantity Verification',        parent: 'NEW_ARRIVAL' },
+  { code: 'SOW-MT-001', name: 'Preventive Maintenance Check', parent: 'MAINTENANCE'  },
+  { code: 'SOW-MT-002', name: 'Corrective Repair Inspection', parent: 'MAINTENANCE'  },
+  { code: 'SOW-MT-003', name: 'Calibration Verification',     parent: 'MAINTENANCE'  },
+  { code: 'SOW-OS-001', name: 'Visual Spot Check',            parent: 'ON_SPOT'      },
+  { code: 'SOW-OS-002', name: 'Functional Spot Test',         parent: 'ON_SPOT'      },
+  { code: 'SOW-OS-003', name: 'Safety Compliance Check',      parent: 'ON_SPOT'      },
 ]
 
-// Predefined scope items per scope code
 const scopeItemMap = {
   'SOW-NA-001': ['Visual Thread', 'Visual Body', 'Full Length Drift', 'End Protectors Check'],
   'SOW-NA-002': ['Mill Certificate', 'Packing List', 'Purchase Order Match'],
@@ -162,8 +231,26 @@ function onServiceTypeChange() {
   form.value.scope_of_work = ''
 }
 
-function onScopeChange() {
-  // scope items update reactively via computed
+// ── Item / Lot helpers ────────────────────────────────────────────
+
+function newLot() {
+  return { lot: '', allocation: '', owner: '', condition: '', available_qty: 0, sample_qty: 0 }
+}
+
+function addItem() {
+  form.value.items.push({ description: '', qty_required: 0, lots: [newLot()] })
+}
+
+function removeItem(itemIdx) {
+  form.value.items.splice(itemIdx, 1)
+}
+
+function addLot(itemIdx) {
+  form.value.items[itemIdx].lots.push(newLot())
+}
+
+function removeLot(itemIdx, lotIdx) {
+  form.value.items[itemIdx].lots.splice(lotIdx, 1)
 }
 </script>
 
@@ -183,7 +270,7 @@ function onScopeChange() {
   color: #94a3b8;
   margin-bottom: 16px;
 }
-.breadcrumb .sep  { color: #cbd5e1; }
+.breadcrumb .sep    { color: #cbd5e1; }
 .breadcrumb .active { color: #1d4ed8; font-weight: 500; }
 
 /* Page header */
@@ -193,16 +280,9 @@ function onScopeChange() {
   justify-content: space-between;
   margin-bottom: 24px;
 }
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: #0f172a;
-}
+.header-left { display: flex; align-items: center; gap: 14px; }
+.page-title  { font-size: 22px; font-weight: 700; color: #0f172a; }
+
 .btn-back {
   background: none;
   border: 1px solid #e2e8f0;
@@ -230,12 +310,12 @@ function onScopeChange() {
   background: #fff;
   border-radius: 10px;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
   padding: 24px;
 }
 
 .section-title {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -245,7 +325,17 @@ function onScopeChange() {
   margin-bottom: 20px;
 }
 
-/* Form layout: left fields + right status panel */
+/* Section header row (title + add button side by side) */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 20px;
+}
+
+/* Form layout */
 .form-layout {
   display: flex;
   gap: 32px;
@@ -263,21 +353,16 @@ function onScopeChange() {
   gap: 18px;
 }
 
-/* Field */
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+/* Fields */
+.field { display: flex; flex-direction: column; gap: 6px; }
 .field label {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
 .req { color: #dc2626; }
-
 .field input,
 .field select {
   border: 1px solid #e2e8f0;
@@ -290,15 +375,11 @@ function onScopeChange() {
   transition: border-color 0.15s;
 }
 .field input:focus,
-.field select:focus { border-color: #1d4ed8; }
+.field select:focus   { border-color: #1d4ed8; }
 .field select:disabled { background: #f8fafc; color: #94a3b8; cursor: not-allowed; }
 
-/* Scope tags */
-.tag-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
+/* Tags */
+.tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .tag {
   background: #dbeafe;
   color: #1d4ed8;
@@ -309,149 +390,178 @@ function onScopeChange() {
 }
 
 /* Toggle */
-.toggle-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 38px;
-}
-.toggle {
-  position: relative;
-  display: inline-block;
-  width: 40px;
-  height: 22px;
-}
+.toggle-row { display: flex; align-items: center; gap: 10px; height: 38px; }
+.toggle { position: relative; display: inline-block; width: 40px; height: 22px; }
 .toggle input { opacity: 0; width: 0; height: 0; }
 .slider {
-  position: absolute;
-  inset: 0;
-  background: #e2e8f0;
-  border-radius: 22px;
-  cursor: pointer;
-  transition: background 0.2s;
+  position: absolute; inset: 0;
+  background: #e2e8f0; border-radius: 22px;
+  cursor: pointer; transition: background 0.2s;
 }
 .slider::before {
-  content: '';
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  left: 3px;
-  bottom: 3px;
-  background: #fff;
-  border-radius: 50%;
-  transition: transform 0.2s;
+  content: ''; position: absolute;
+  width: 16px; height: 16px; left: 3px; bottom: 3px;
+  background: #fff; border-radius: 50%; transition: transform 0.2s;
 }
-.toggle input:checked + .slider { background: #1d4ed8; }
-.toggle input:checked + .slider::before { transform: translateX(18px); }
+.toggle input:checked + .slider               { background: #1d4ed8; }
+.toggle input:checked + .slider::before      { transform: translateX(18px); }
 .toggle-label { font-size: 14px; color: #475569; }
 
 /* Status panel */
 .status-panel {
-  width: 180px;
-  flex-shrink: 0;
-  background: #f8fafc;
+  width: 180px; flex-shrink: 0;
+  background: #f8fafc; border: 1px solid #e2e8f0;
+  border-radius: 8px; padding: 16px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.status-label {
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8;
+}
+.status-badge-draft {
+  background: #f1f5f9; color: #475569;
+  border-radius: 12px; padding: 4px 14px;
+  font-size: 13px; font-weight: 600; text-align: center;
+}
+.status-hint { font-size: 11px; color: #94a3b8; line-height: 1.5; }
+
+/* ── Order Information ────────────────────────────────────────── */
+
+.btn-add-item {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-weight: 600;
+  font-size: 13px;
+  transition: background 0.15s;
+}
+.btn-add-item:hover { background: #dbeafe; }
+
+.items-empty {
+  padding: 32px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+  border: 1px dashed #e2e8f0;
+  border-radius: 8px;
+}
+
+/* Item block */
+.item-block {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  margin-bottom: 16px;
+  background: #fafafa;
 }
-.status-label {
+.item-block:last-child { margin-bottom: 0; }
+
+.item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.item-number {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1d4ed8;
+}
+.btn-remove {
+  background: none;
+  border: 1px solid #fca5a5;
+  color: #dc2626;
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+.btn-remove:hover { background: #fee2e2; }
+
+/* Lots section */
+.lots-section { margin-top: 6px; }
+
+.lots-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.lots-label {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: #94a3b8;
 }
-.status-badge.draft {
-  display: inline-block;
-  background: #f1f5f9;
-  color: #475569;
-  border-radius: 12px;
-  padding: 4px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  text-align: center;
-}
-.status-hint {
-  font-size: 11px;
-  color: #94a3b8;
-  line-height: 1.5;
-}
-</style>
-
-
-<style scoped>
-.page {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 28px 24px;
-}
-
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #94a3b8;
-  margin-bottom: 16px;
-}
-
-.breadcrumb .sep {
-  color: #cbd5e1;
-}
-
-.breadcrumb .active {
-  color: #1d4ed8;
-  font-weight: 500;
-}
-
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.btn-back {
+.btn-add-lot {
   background: none;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
-  padding: 6px 14px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
   color: #475569;
-  font-weight: 500;
   transition: border-color 0.15s, color 0.15s;
 }
+.btn-add-lot:hover { border-color: #1d4ed8; color: #1d4ed8; }
 
-.btn-back:hover {
-  border-color: #1d4ed8;
-  color: #1d4ed8;
-}
-
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.card {
-  background: #fff;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
-  padding: 40px 24px;
-}
-
-.placeholder {
-  text-align: center;
+.lots-empty {
+  font-size: 12px;
   color: #94a3b8;
-  font-size: 14px;
+  padding: 10px 0;
 }
+
+/* Lots table */
+.lots-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.lots-table thead tr {
+  background: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+}
+.lots-table th {
+  padding: 7px 10px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #94a3b8;
+}
+.lots-table td {
+  padding: 6px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+.lots-table tbody tr:last-child td { border-bottom: none; }
+.lots-table input {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  padding: 6px 8px;
+  font-size: 13px;
+  color: #1e293b;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.lots-table input:focus   { border-color: #1d4ed8; }
+.lots-table input.readonly { background: #f8fafc; color: #94a3b8; cursor: not-allowed; }
+
+.btn-remove-lot {
+  background: none;
+  border: none;
+  color: #dc2626;
+  font-size: 14px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+.btn-remove-lot:hover { background: #fee2e2; }
 </style>
