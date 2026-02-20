@@ -5,10 +5,26 @@ namespace App\Http\Controllers;
 use App\Models\Inspection;
 use App\Models\InspectionItem;
 use App\Models\InspectionLot;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class InspectionController extends Controller
 {
+    private function findEditable(string $id): Inspection|JsonResponse
+    {
+        $inspection = Inspection::where('_id', $id)->first();
+
+        if (!$inspection) {
+            return response()->json(['message' => 'Inspection not found.'], 404);
+        }
+
+        if (!$inspection->isEditable()) {
+            return response()->json(['message' => 'Inspection cannot be modified in current status.'], 400);
+        }
+
+        return $inspection;
+    }
+
     public function index(Request $request)
     {
         $query = Inspection::with('items.lots')->orderByDesc('created_at');
@@ -147,5 +163,90 @@ class InspectionController extends Controller
             'status'                => $inspection->status,
             'workflow_status_group' => $inspection->workflow_status_group,
         ]);
+    }
+
+    public function updateHeader(string $id, Request $request)
+    {
+        $inspection = $this->findEditable($id);
+        if ($inspection instanceof JsonResponse) return $inspection;
+
+        $request->validate([
+            'service_type'              => 'sometimes|string',
+            'scope_of_work'             => 'sometimes|string',
+            'location'                  => 'sometimes|nullable|string',
+            'estimated_completion_date' => 'sometimes|nullable|date',
+            'related_to'                => 'sometimes|nullable|string',
+            'charge_to_customer'        => 'sometimes|boolean',
+            'customer_name'             => 'sometimes|nullable|string',
+        ]);
+
+        if ($request->has('service_type'))              $inspection->service_type_category     = $request->input('service_type');
+        if ($request->has('scope_of_work'))             $inspection->scope_of_work_code        = $request->input('scope_of_work');
+        if ($request->has('location'))                  $inspection->location                  = $request->input('location');
+        if ($request->has('estimated_completion_date')) $inspection->estimated_completion_date = $request->input('estimated_completion_date');
+        if ($request->has('related_to'))                $inspection->related_to                = $request->input('related_to');
+        if ($request->has('charge_to_customer'))        $inspection->charge_to_customer        = $request->boolean('charge_to_customer');
+        if ($request->has('customer_name'))             $inspection->customer_name             = $request->input('customer_name');
+
+        $inspection->save();
+
+        return response()->json(['success' => true]);
+    }
+
+    public function updateItem(string $id, string $itemId, Request $request)
+    {
+        $inspection = $this->findEditable($id);
+        if ($inspection instanceof JsonResponse) return $inspection;
+
+        $item = InspectionItem::where('_id', $itemId)
+            ->where('inspection_id', $id)
+            ->first();
+
+        if (!$item) {
+            return response()->json(['message' => 'Item not found.'], 404);
+        }
+
+        $request->validate([
+            'description'  => 'sometimes|string',
+            'qty_required' => 'sometimes|integer|min:1',
+        ]);
+
+        if ($request->has('description'))  $item->item_name    = $request->input('description');
+        if ($request->has('qty_required')) $item->qty_required = $request->input('qty_required');
+
+        $item->save();
+
+        return response()->json(['success' => true]);
+    }
+
+    public function updateLot(string $id, string $itemId, string $lotId, Request $request)
+    {
+        $inspection = $this->findEditable($id);
+        if ($inspection instanceof JsonResponse) return $inspection;
+
+        $lot = InspectionLot::where('_id', $lotId)
+            ->where('inspection_item_id', $itemId)
+            ->first();
+
+        if (!$lot) {
+            return response()->json(['message' => 'Lot not found.'], 404);
+        }
+
+        $request->validate([
+            'lot'           => 'sometimes|nullable|string',
+            'allocation'    => 'sometimes|nullable|string',
+            'owner'         => 'sometimes|nullable|string',
+            'condition'     => 'sometimes|nullable|string',
+            'available_qty' => 'sometimes|integer|min:0',
+            'sample_qty'    => 'sometimes|integer|min:0',
+        ]);
+
+        foreach (['lot', 'allocation', 'owner', 'condition', 'available_qty', 'sample_qty'] as $field) {
+            if ($request->has($field)) $lot->$field = $request->input($field);
+        }
+
+        $lot->save();
+
+        return response()->json(['success' => true]);
     }
 }
