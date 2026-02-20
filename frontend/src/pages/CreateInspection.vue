@@ -159,12 +159,32 @@
             </thead>
             <tbody>
               <tr v-for="(lot, lotIdx) in item.lots" :key="lotIdx">
-                <td><input v-model="lot.lot"                   type="text"   placeholder="LOT-00001" /></td>
-                <td><input v-model="lot.allocation"            type="text"   placeholder="PROJECT-ALPHA" /></td>
-                <td><input v-model="lot.owner"                 type="text"   placeholder="OWNER-COMPANY" /></td>
-                <td><input v-model="lot.condition"             type="text"   placeholder="NEW" /></td>
-                <td><input v-model.number="lot.available_qty"  type="number" readonly placeholder="0" class="readonly" /></td>
-                <td><input v-model.number="lot.sample_qty"     type="number" min="0"  placeholder="0" /></td>
+                <td>
+                  <select v-model="lot.lot" @change="onLotChange(itemIdx, lotIdx)">
+                    <option value="">— Select —</option>
+                    <option v-for="l in lotOptions()" :key="l" :value="l">{{ l }}</option>
+                  </select>
+                </td>
+                <td>
+                  <select v-model="lot.allocation" :disabled="!lot.lot" @change="onAllocationChange(itemIdx, lotIdx)">
+                    <option value="">— Select —</option>
+                    <option v-for="a in allocationOptions(lot.lot)" :key="a" :value="a">{{ a }}</option>
+                  </select>
+                </td>
+                <td>
+                  <select v-model="lot.owner" :disabled="!lot.allocation" @change="onOwnerChange(itemIdx, lotIdx)">
+                    <option value="">— Select —</option>
+                    <option v-for="o in ownerOptions(lot.lot, lot.allocation)" :key="o" :value="o">{{ o }}</option>
+                  </select>
+                </td>
+                <td>
+                  <select v-model="lot.condition" :disabled="!lot.owner" @change="onConditionChange(itemIdx, lotIdx)">
+                    <option value="">— Select —</option>
+                    <option v-for="c in conditionOptions(lot.lot, lot.allocation, lot.owner)" :key="c" :value="c">{{ c }}</option>
+                  </select>
+                </td>
+                <td><input v-model.number="lot.available_qty" type="number" readonly class="readonly" /></td>
+                <td><input v-model.number="lot.sample_qty"    type="number" min="0" placeholder="0" /></td>
                 <td>
                   <button class="btn-remove-lot" @click="removeLot(itemIdx, lotIdx)">✕</button>
                 </td>
@@ -251,6 +271,90 @@ function addLot(itemIdx) {
 
 function removeLot(itemIdx, lotIdx) {
   form.value.items[itemIdx].lots.splice(lotIdx, 1)
+}
+
+// ── Inventory lots (static — replace with API call when ready) ───
+
+const inventoryLots = [
+  { lot_no: 'LOT-10001', allocation: 'PROJECT-ALPHA', owner: 'CHEVRON',  condition: 'NEW',  available_qty: 120 },
+  { lot_no: 'LOT-10001', allocation: 'PROJECT-ALPHA', owner: 'CHEVRON',  condition: 'USED', available_qty: 35  },
+  { lot_no: 'LOT-10001', allocation: 'PROJECT-BETA',  owner: 'PETRONAS', condition: 'NEW',  available_qty: 60  },
+  { lot_no: 'LOT-10002', allocation: 'PROJECT-BETA',  owner: 'PETRONAS', condition: 'NEW',  available_qty: 80  },
+  { lot_no: 'LOT-10002', allocation: 'PROJECT-BETA',  owner: 'PETRONAS', condition: 'USED', available_qty: 20  },
+  { lot_no: 'LOT-10002', allocation: 'PROJECT-GAMMA', owner: 'SHELL',    condition: 'NEW',  available_qty: 50  },
+  { lot_no: 'LOT-10003', allocation: 'PROJECT-GAMMA', owner: 'SHELL',    condition: 'NEW',  available_qty: 90  },
+  { lot_no: 'LOT-10003', allocation: 'PROJECT-DELTA', owner: 'TOTAL',    condition: 'NEW',  available_qty: 110 },
+  { lot_no: 'LOT-10003', allocation: 'PROJECT-DELTA', owner: 'TOTAL',    condition: 'USED', available_qty: 15  },
+  { lot_no: 'LOT-10004', allocation: 'PROJECT-ALPHA', owner: 'CHEVRON',  condition: 'NEW',  available_qty: 200 },
+  { lot_no: 'LOT-10005', allocation: 'PROJECT-DELTA', owner: 'TOTAL',    condition: 'NEW',  available_qty: 75  },
+]
+
+// ── Cascading dropdown options ────────────────────────────────────
+
+function lotOptions() {
+  return [...new Set(inventoryLots.map((r) => r.lot_no))]
+}
+
+function allocationOptions(lotNo) {
+  return [...new Set(
+    inventoryLots.filter((r) => r.lot_no === lotNo).map((r) => r.allocation),
+  )]
+}
+
+function ownerOptions(lotNo, allocation) {
+  return [...new Set(
+    inventoryLots
+      .filter((r) => r.lot_no === lotNo && r.allocation === allocation)
+      .map((r) => r.owner),
+  )]
+}
+
+function conditionOptions(lotNo, allocation, owner) {
+  return [...new Set(
+    inventoryLots
+      .filter((r) => r.lot_no === lotNo && r.allocation === allocation && r.owner === owner)
+      .map((r) => r.condition),
+  )]
+}
+
+function resolveAvailableQty(lotNo, allocation, owner, condition) {
+  const match = inventoryLots.find(
+    (r) => r.lot_no === lotNo && r.allocation === allocation && r.owner === owner && r.condition === condition,
+  )
+  return match ? match.available_qty : 0
+}
+
+// ── Lot cascade handlers ──────────────────────────────────────────
+
+function onLotChange(itemIdx, lotIdx) {
+  const lot = form.value.items[itemIdx].lots[lotIdx]
+  const first = inventoryLots.find((r) => r.lot_no === lot.lot)
+  lot.allocation   = first ? first.allocation  : ''
+  lot.owner        = first ? first.owner        : ''
+  lot.condition    = first ? first.condition    : ''
+  lot.available_qty = first ? first.available_qty : 0
+}
+
+function onAllocationChange(itemIdx, lotIdx) {
+  const lot = form.value.items[itemIdx].lots[lotIdx]
+  const first = inventoryLots.find((r) => r.lot_no === lot.lot && r.allocation === lot.allocation)
+  lot.owner         = first ? first.owner     : ''
+  lot.condition     = first ? first.condition : ''
+  lot.available_qty = first ? first.available_qty : 0
+}
+
+function onOwnerChange(itemIdx, lotIdx) {
+  const lot = form.value.items[itemIdx].lots[lotIdx]
+  const first = inventoryLots.find(
+    (r) => r.lot_no === lot.lot && r.allocation === lot.allocation && r.owner === lot.owner,
+  )
+  lot.condition     = first ? first.condition : ''
+  lot.available_qty = first ? first.available_qty : 0
+}
+
+function onConditionChange(itemIdx, lotIdx) {
+  const lot = form.value.items[itemIdx].lots[lotIdx]
+  lot.available_qty = resolveAvailableQty(lot.lot, lot.allocation, lot.owner, lot.condition)
 }
 </script>
 
@@ -540,7 +644,8 @@ function removeLot(itemIdx, lotIdx) {
   vertical-align: middle;
 }
 .lots-table tbody tr:last-child td { border-bottom: none; }
-.lots-table input {
+.lots-table input,
+.lots-table select {
   width: 100%;
   border: 1px solid #e2e8f0;
   border-radius: 5px;
@@ -551,8 +656,10 @@ function removeLot(itemIdx, lotIdx) {
   outline: none;
   transition: border-color 0.15s;
 }
-.lots-table input:focus   { border-color: #1d4ed8; }
-.lots-table input.readonly { background: #f8fafc; color: #94a3b8; cursor: not-allowed; }
+.lots-table input:focus,
+.lots-table select:focus    { border-color: #1d4ed8; }
+.lots-table input.readonly  { background: #f8fafc; color: #94a3b8; cursor: not-allowed; }
+.lots-table select:disabled { background: #f8fafc; color: #94a3b8; cursor: not-allowed; }
 
 .btn-remove-lot {
   background: none;
