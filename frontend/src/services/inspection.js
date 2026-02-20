@@ -1,5 +1,15 @@
 import api from './api'
 
+export async function fetchMasterData() {
+  const response = await api.get('/master-data')
+  return response.data
+}
+
+export async function createInspection(payload) {
+  const response = await api.post('/inspections', payload)
+  return response.data
+}
+
 export async function fetchInspections(status, page = 1) {
   const params = { page }
   if (status) params.status = status

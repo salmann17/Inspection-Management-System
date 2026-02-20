@@ -1,5 +1,12 @@
 <template>
   <div class="page">
+    <!-- Loading overlay -->
+    <div v-if="loading" class="loading-overlay">
+      <div class="loading-spinner" />
+      <p>Loading master data…</p>
+    </div>
+
+    <template v-else>
     <!-- Breadcrumb -->
     <nav class="breadcrumb">
       <span>Quality &amp; HSE</span>
@@ -15,7 +22,10 @@
         <button class="btn-back" @click="$router.push('/inspections')">← Back</button>
         <h1 class="page-title">Create Inspection</h1>
       </div>
-      <button class="btn-primary">Save</button>
+      <p v-if="error" class="save-error">{{ error }}</p>
+      <button class="btn-primary" :disabled="saving" @click="submit">
+        {{ saving ? 'Saving…' : 'Save' }}
+      </button>
     </div>
 
     <!-- ── Inspection Header card ─────────────────────────────── -->
@@ -30,9 +40,9 @@
               <label>Service Type <span class="req">*</span></label>
               <select v-model="form.service_type" @change="onServiceTypeChange">
                 <option value="">— Select —</option>
-                <option value="NEW_ARRIVAL">New Arrival</option>
-                <option value="MAINTENANCE">Maintenance</option>
-                <option value="ON_SPOT">On Spot</option>
+                <option v-for="st in masterData.serviceTypes" :key="st.code" :value="st.code">
+                  {{ st.name }}
+                </option>
               </select>
             </div>
             <div class="field">
@@ -194,11 +204,26 @@
         </div>
       </div>
     </div>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { fetchMasterData, createInspection } from '../services/inspection'
+
+const router = useRouter()
+const saving  = ref(false)
+const loading = ref(true)
+const error   = ref(null)
+
+const masterData = ref({
+  serviceTypes:  [],
+  scopes:        [],
+  scopeItems:    [],
+  inventoryLots: [],
+})
 
 const form = ref({
   service_type:              '',
@@ -211,40 +236,34 @@ const form = ref({
   items:                     [],
 })
 
-// ── Master data (static for now) ─────────────────────────────────
+// ── Load master data ──────────────────────────────────────────────
 
-const allScopes = [
-  { code: 'SOW-NA-001', name: 'Inbound Quality Inspection',   parent: 'NEW_ARRIVAL' },
-  { code: 'SOW-NA-002', name: 'Documentation Verification',   parent: 'NEW_ARRIVAL' },
-  { code: 'SOW-NA-003', name: 'Packaging Integrity Check',    parent: 'NEW_ARRIVAL' },
-  { code: 'SOW-NA-004', name: 'Quantity Verification',        parent: 'NEW_ARRIVAL' },
-  { code: 'SOW-MT-001', name: 'Preventive Maintenance Check', parent: 'MAINTENANCE'  },
-  { code: 'SOW-MT-002', name: 'Corrective Repair Inspection', parent: 'MAINTENANCE'  },
-  { code: 'SOW-MT-003', name: 'Calibration Verification',     parent: 'MAINTENANCE'  },
-  { code: 'SOW-OS-001', name: 'Visual Spot Check',            parent: 'ON_SPOT'      },
-  { code: 'SOW-OS-002', name: 'Functional Spot Test',         parent: 'ON_SPOT'      },
-  { code: 'SOW-OS-003', name: 'Safety Compliance Check',      parent: 'ON_SPOT'      },
-]
+onMounted(async () => {
+  try {
+    const data = await fetchMasterData()
+    masterData.value = {
+      serviceTypes:  data.service_types  ?? [],
+      scopes:        data.scopes         ?? [],
+      scopeItems:    data.scope_items    ?? [],
+      inventoryLots: data.inventory_lots ?? [],
+    }
+  } catch {
+    error.value = 'Failed to load master data. Please refresh.'
+  } finally {
+    loading.value = false
+  }
+})
 
-const scopeItemMap = {
-  'SOW-NA-001': ['Visual Thread', 'Visual Body', 'Full Length Drift', 'End Protectors Check'],
-  'SOW-NA-002': ['Mill Certificate', 'Packing List', 'Purchase Order Match'],
-  'SOW-NA-003': ['Outer Packaging', 'Inner Wrapping', 'Seal Integrity'],
-  'SOW-NA-004': ['Physical Count', 'Tag Verification', 'Weight Measurement'],
-  'SOW-MT-001': ['Lubrication Check', 'Torque Verification', 'Wear Measurement'],
-  'SOW-MT-002': ['Crack Detection', 'Dimensional Check', 'Surface Condition'],
-  'SOW-MT-003': ['Pressure Gauge', 'Temperature Sensor', 'Flow Meter'],
-  'SOW-OS-001': ['Visual Thread', 'Visual Body', 'Coating Condition'],
-  'SOW-OS-002': ['Valve Operation', 'Actuator Test', 'Leak Test'],
-  'SOW-OS-003': ['Grounding Check', 'Labeling', 'Fire Safety Compliance'],
-}
+// ── Computed filters ──────────────────────────────────────────────
 
 const filteredScopes = computed(() =>
-  allScopes.filter((s) => s.parent === form.value.service_type),
+  masterData.value.scopes.filter((s) => s.parent_code === form.value.service_type),
 )
 
 const scopeItems = computed(() =>
-  scopeItemMap[form.value.scope_of_work] ?? [],
+  masterData.value.scopeItems
+    .filter((s) => s.parent_code === form.value.scope_of_work)
+    .map((s) => s.name),
 )
 
 function onServiceTypeChange() {
@@ -273,53 +292,39 @@ function removeLot(itemIdx, lotIdx) {
   form.value.items[itemIdx].lots.splice(lotIdx, 1)
 }
 
-// ── Inventory lots (static — replace with API call when ready) ───
+// ── Cascading dropdown options (driven by API data) ───────────────
 
-const inventoryLots = [
-  { lot_no: 'LOT-10001', allocation: 'PROJECT-ALPHA', owner: 'CHEVRON',  condition: 'NEW',  available_qty: 120 },
-  { lot_no: 'LOT-10001', allocation: 'PROJECT-ALPHA', owner: 'CHEVRON',  condition: 'USED', available_qty: 35  },
-  { lot_no: 'LOT-10001', allocation: 'PROJECT-BETA',  owner: 'PETRONAS', condition: 'NEW',  available_qty: 60  },
-  { lot_no: 'LOT-10002', allocation: 'PROJECT-BETA',  owner: 'PETRONAS', condition: 'NEW',  available_qty: 80  },
-  { lot_no: 'LOT-10002', allocation: 'PROJECT-BETA',  owner: 'PETRONAS', condition: 'USED', available_qty: 20  },
-  { lot_no: 'LOT-10002', allocation: 'PROJECT-GAMMA', owner: 'SHELL',    condition: 'NEW',  available_qty: 50  },
-  { lot_no: 'LOT-10003', allocation: 'PROJECT-GAMMA', owner: 'SHELL',    condition: 'NEW',  available_qty: 90  },
-  { lot_no: 'LOT-10003', allocation: 'PROJECT-DELTA', owner: 'TOTAL',    condition: 'NEW',  available_qty: 110 },
-  { lot_no: 'LOT-10003', allocation: 'PROJECT-DELTA', owner: 'TOTAL',    condition: 'USED', available_qty: 15  },
-  { lot_no: 'LOT-10004', allocation: 'PROJECT-ALPHA', owner: 'CHEVRON',  condition: 'NEW',  available_qty: 200 },
-  { lot_no: 'LOT-10005', allocation: 'PROJECT-DELTA', owner: 'TOTAL',    condition: 'NEW',  available_qty: 75  },
-]
-
-// ── Cascading dropdown options ────────────────────────────────────
+const lots = computed(() => masterData.value.inventoryLots)
 
 function lotOptions() {
-  return [...new Set(inventoryLots.map((r) => r.lot_no))]
+  return [...new Set(lots.value.map((r) => r.lot))]
 }
 
 function allocationOptions(lotNo) {
   return [...new Set(
-    inventoryLots.filter((r) => r.lot_no === lotNo).map((r) => r.allocation),
+    lots.value.filter((r) => r.lot === lotNo).map((r) => r.allocation),
   )]
 }
 
 function ownerOptions(lotNo, allocation) {
   return [...new Set(
-    inventoryLots
-      .filter((r) => r.lot_no === lotNo && r.allocation === allocation)
+    lots.value
+      .filter((r) => r.lot === lotNo && r.allocation === allocation)
       .map((r) => r.owner),
   )]
 }
 
 function conditionOptions(lotNo, allocation, owner) {
   return [...new Set(
-    inventoryLots
-      .filter((r) => r.lot_no === lotNo && r.allocation === allocation && r.owner === owner)
+    lots.value
+      .filter((r) => r.lot === lotNo && r.allocation === allocation && r.owner === owner)
       .map((r) => r.condition),
   )]
 }
 
 function resolveAvailableQty(lotNo, allocation, owner, condition) {
-  const match = inventoryLots.find(
-    (r) => r.lot_no === lotNo && r.allocation === allocation && r.owner === owner && r.condition === condition,
+  const match = lots.value.find(
+    (r) => r.lot === lotNo && r.allocation === allocation && r.owner === owner && r.condition === condition,
   )
   return match ? match.available_qty : 0
 }
@@ -328,33 +333,48 @@ function resolveAvailableQty(lotNo, allocation, owner, condition) {
 
 function onLotChange(itemIdx, lotIdx) {
   const lot = form.value.items[itemIdx].lots[lotIdx]
-  const first = inventoryLots.find((r) => r.lot_no === lot.lot)
-  lot.allocation   = first ? first.allocation  : ''
-  lot.owner        = first ? first.owner        : ''
-  lot.condition    = first ? first.condition    : ''
+  const first = lots.value.find((r) => r.lot === lot.lot)
+  lot.allocation    = first ? first.allocation    : ''
+  lot.owner         = first ? first.owner         : ''
+  lot.condition     = first ? first.condition     : ''
   lot.available_qty = first ? first.available_qty : 0
 }
 
 function onAllocationChange(itemIdx, lotIdx) {
   const lot = form.value.items[itemIdx].lots[lotIdx]
-  const first = inventoryLots.find((r) => r.lot_no === lot.lot && r.allocation === lot.allocation)
-  lot.owner         = first ? first.owner     : ''
-  lot.condition     = first ? first.condition : ''
+  const first = lots.value.find((r) => r.lot === lot.lot && r.allocation === lot.allocation)
+  lot.owner         = first ? first.owner         : ''
+  lot.condition     = first ? first.condition     : ''
   lot.available_qty = first ? first.available_qty : 0
 }
 
 function onOwnerChange(itemIdx, lotIdx) {
   const lot = form.value.items[itemIdx].lots[lotIdx]
-  const first = inventoryLots.find(
-    (r) => r.lot_no === lot.lot && r.allocation === lot.allocation && r.owner === lot.owner,
+  const first = lots.value.find(
+    (r) => r.lot === lot.lot && r.allocation === lot.allocation && r.owner === lot.owner,
   )
-  lot.condition     = first ? first.condition : ''
+  lot.condition     = first ? first.condition     : ''
   lot.available_qty = first ? first.available_qty : 0
 }
 
 function onConditionChange(itemIdx, lotIdx) {
   const lot = form.value.items[itemIdx].lots[lotIdx]
   lot.available_qty = resolveAvailableQty(lot.lot, lot.allocation, lot.owner, lot.condition)
+}
+
+// ── Submit ────────────────────────────────────────────────────────
+
+async function submit() {
+  error.value  = null
+  saving.value = true
+  try {
+    const result = await createInspection(form.value)
+    router.push('/inspections')
+  } catch (err) {
+    error.value = err.response?.data?.message ?? 'Failed to save inspection. Please try again.'
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 
@@ -376,6 +396,27 @@ function onConditionChange(itemIdx, lotIdx) {
 }
 .breadcrumb .sep    { color: #cbd5e1; }
 .breadcrumb .active { color: #1d4ed8; font-weight: 500; }
+
+/* Loading overlay */
+.loading-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 0;
+  color: #64748b;
+  font-size: 14px;
+  gap: 14px;
+}
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #1d4ed8;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* Page header */
 .page-header {
@@ -408,6 +449,20 @@ function onConditionChange(itemIdx, lotIdx) {
   transition: background 0.15s;
 }
 .btn-primary:hover { background: #1e40af; }
+.btn-primary:disabled {
+  background: #93c5fd;
+  cursor: not-allowed;
+}
+
+.save-error {
+  font-size: 13px;
+  color: #dc2626;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  padding: 8px 14px;
+  margin-right: 12px;
+}
 
 /* Card */
 .card {
