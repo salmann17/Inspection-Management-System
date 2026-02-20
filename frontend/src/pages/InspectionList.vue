@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="page-header">
       <h1 class="page-title">Inspection Record</h1>
-      <button class="btn-primary">+ Create Inspection</button>
+      <button class="btn-primary" @click="$router.push('/inspections/create')">+ Create Inspection</button>
     </div>
 
     <!-- Tabs -->

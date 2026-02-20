@@ -43,6 +43,7 @@ class Inspection extends Model
         'request_no',
         'service_type_category',
         'scope_of_work_code',
+        'location',
         'estimated_completion_date',
         'related_to',
         'charge_to_customer',
