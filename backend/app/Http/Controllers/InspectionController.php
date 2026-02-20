@@ -7,6 +7,7 @@ use App\Models\InspectionItem;
 use App\Models\InspectionLot;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class InspectionController extends Controller
 {
@@ -165,32 +166,99 @@ class InspectionController extends Controller
         ]);
     }
 
-    public function updateHeader(string $id, Request $request)
+    public function update(string $id, Request $request)
     {
         $inspection = $this->findEditable($id);
         if ($inspection instanceof JsonResponse) return $inspection;
 
-        $request->validate([
-            'service_type'              => 'sometimes|string',
-            'scope_of_work'             => 'sometimes|string',
-            'location'                  => 'sometimes|nullable|string',
-            'estimated_completion_date' => 'sometimes|nullable|date',
-            'related_to'                => 'sometimes|nullable|string',
-            'charge_to_customer'        => 'sometimes|boolean',
-            'customer_name'             => 'sometimes|nullable|string',
+        $data = $request->validate([
+            'service_type'                 => 'required|string',
+            'scope_of_work'                => 'required|string',
+            'location'                     => 'nullable|string',
+            'estimated_completion_date'    => 'nullable|date',
+            'related_to'                   => 'nullable|string',
+            'charge_to_customer'           => 'required|boolean',
+            'customer_name'                => 'nullable|string',
+            'items'                        => 'required|array|min:1',
+            'items.*.description'          => 'required|string',
+            'items.*.qty_required'         => 'required|integer|min:1',
+            'items.*.lots'                 => 'sometimes|array',
+            'items.*.lots.*.lot'           => 'nullable|string',
+            'items.*.lots.*.allocation'    => 'nullable|string',
+            'items.*.lots.*.owner'         => 'nullable|string',
+            'items.*.lots.*.condition'     => 'nullable|string',
+            'items.*.lots.*.available_qty' => 'integer|min:0',
+            'items.*.lots.*.sample_qty'    => 'integer|min:0',
         ]);
 
-        if ($request->has('service_type'))              $inspection->service_type_category     = $request->input('service_type');
-        if ($request->has('scope_of_work'))             $inspection->scope_of_work_code        = $request->input('scope_of_work');
-        if ($request->has('location'))                  $inspection->location                  = $request->input('location');
-        if ($request->has('estimated_completion_date')) $inspection->estimated_completion_date = $request->input('estimated_completion_date');
-        if ($request->has('related_to'))                $inspection->related_to                = $request->input('related_to');
-        if ($request->has('charge_to_customer'))        $inspection->charge_to_customer        = $request->boolean('charge_to_customer');
-        if ($request->has('customer_name'))             $inspection->customer_name             = $request->input('customer_name');
+        DB::transaction(function () use ($inspection, $data) {
+            $itemIds = InspectionItem::where('inspection_id', $inspection->id)->pluck('_id');
+            InspectionLot::whereIn('inspection_item_id', $itemIds)->delete();
+            InspectionItem::where('inspection_id', $inspection->id)->delete();
 
-        $inspection->save();
+            $inspection->service_type_category     = $data['service_type'];
+            $inspection->scope_of_work_code        = $data['scope_of_work'];
+            $inspection->location                  = $data['location'] ?? null;
+            $inspection->estimated_completion_date = $data['estimated_completion_date'] ?? null;
+            $inspection->related_to                = $data['related_to'] ?? null;
+            $inspection->charge_to_customer        = $data['charge_to_customer'];
+            $inspection->customer_name             = $data['customer_name'] ?? null;
+            $inspection->total_items               = count($data['items']);
+            $inspection->total_lots                = collect($data['items'])->sum(fn ($i) => count($i['lots'] ?? []));
+            $inspection->save();
 
-        return response()->json(['success' => true]);
+            foreach ($data['items'] as $itemData) {
+                $item = InspectionItem::create([
+                    'inspection_id' => $inspection->_id,
+                    'item_name'     => $itemData['description'],
+                    'qty_required'  => $itemData['qty_required'],
+                ]);
+
+                foreach ($itemData['lots'] ?? [] as $lotData) {
+                    InspectionLot::create([
+                        'inspection_item_id' => $item->_id,
+                        'lot'                => $lotData['lot'] ?? null,
+                        'allocation'         => $lotData['allocation'] ?? null,
+                        'owner'              => $lotData['owner'] ?? null,
+                        'condition'          => $lotData['condition'] ?? null,
+                        'available_qty'      => $lotData['available_qty'] ?? 0,
+                        'sample_qty'         => $lotData['sample_qty'] ?? 0,
+                    ]);
+                }
+            }
+        });
+
+        $inspection->load('items.lots');
+
+        return response()->json([
+            'id'                        => $inspection->id,
+            'inspection_no'             => $inspection->request_no,
+            'service_type'              => $inspection->service_type_category,
+            'scope_of_work'             => $inspection->scope_of_work_code,
+            'location'                  => $inspection->location,
+            'estimated_completion_date' => $inspection->estimated_completion_date?->toDateString(),
+            'related_to'                => $inspection->related_to,
+            'charge_to_customer'        => $inspection->charge_to_customer,
+            'customer_name'             => $inspection->customer_name,
+            'status'                    => $inspection->status,
+            'workflow_status_group'     => $inspection->workflow_status_group,
+            'total_items'               => $inspection->total_items,
+            'total_lots'                => $inspection->total_lots,
+            'items'                     => $inspection->items->map(fn ($item) => [
+                'id'           => $item->id,
+                'description'  => $item->item_name,
+                'qty_required' => $item->qty_required,
+                'lots'         => $item->lots->map(fn ($lot) => [
+                    'id'            => $lot->id,
+                    'lot'           => $lot->lot,
+                    'allocation'    => $lot->allocation,
+                    'owner'         => $lot->owner,
+                    'condition'     => $lot->condition,
+                    'available_qty' => $lot->available_qty,
+                    'sample_qty'    => $lot->sample_qty,
+                ]),
+            ]),
+        ]);
     }
 
     public function updateItem(string $id, string $itemId, Request $request)
