@@ -15,6 +15,11 @@ export async function fetchInspectionDetail(id) {
   return response.data
 }
 
+export async function updateInspectionStatus(id, status) {
+  const response = await api.patch(`/inspections/${id}/status`, { status })
+  return response.data
+}
+
 export async function fetchInspections(status, page = 1) {
   const params = { page }
   if (status) params.status = status

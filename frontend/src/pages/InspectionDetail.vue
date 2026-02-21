@@ -22,9 +22,20 @@
         </div>
         <div class="header-right">
           <StatusBadge :status="inspection.status" />
+          <button
+            v-if="transitionAction"
+            class="btn-primary"
+            :disabled="transitioning"
+            @click="doTransition"
+          >
+            <span v-if="transitioning" class="spinner spinner-sm" />
+            {{ transitionAction.label }}
+          </button>
           <button class="btn-secondary" @click="$router.push('/inspections')">← Back</button>
         </div>
       </div>
+
+      <div v-if="transitionError" class="banner-error">{{ transitionError }}</div>
 
       <!-- Detail Card -->
       <div class="card">
@@ -111,17 +122,28 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import StatusBadge from '../components/StatusBadge.vue'
-import { fetchInspectionDetail } from '../services/inspection'
+import { fetchInspectionDetail, updateInspectionStatus } from '../services/inspection'
 
-const route      = useRoute()
-const loading    = ref(true)
-const error      = ref(null)
-const inspection = ref(null)
+const route           = useRoute()
+const loading         = ref(true)
+const error           = ref(null)
+const inspection      = ref(null)
+const transitioning   = ref(false)
+const transitionError = ref(null)
 
-onMounted(async () => {
+const TRANSITIONS = {
+  OPEN:       { label: 'Submit for Review', next: 'FOR_REVIEW' },
+  FOR_REVIEW: { label: 'Mark as Completed', next: 'COMPLETED' },
+}
+
+const transitionAction = computed(() =>
+  inspection.value ? (TRANSITIONS[inspection.value.workflow_status_group] ?? null) : null
+)
+
+async function loadInspection() {
   try {
     inspection.value = await fetchInspectionDetail(route.params.id)
   } catch (err) {
@@ -131,7 +153,22 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
+
+async function doTransition() {
+  transitionError.value = null
+  transitioning.value = true
+  try {
+    await updateInspectionStatus(route.params.id, transitionAction.value.next)
+    await loadInspection()
+  } catch {
+    transitionError.value = 'Failed to update status. Please try again.'
+  } finally {
+    transitioning.value = false
+  }
+}
+
+onMounted(loadInspection)
 </script>
 
 <style scoped>
@@ -320,5 +357,46 @@ onMounted(async () => {
 
 .btn-secondary:hover {
   background: #f3f4f6;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.spinner-sm {
+  width: 12px;
+  height: 12px;
+  border-width: 2px;
+  border-color: rgba(255,255,255,0.4);
+  border-top-color: #fff;
+}
+
+.banner-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 13px;
+  margin-bottom: 16px;
 }
 </style>
