@@ -10,6 +10,11 @@ export async function createInspection(payload) {
   return response.data
 }
 
+export async function fetchInspectionDetail(id) {
+  const response = await api.get(`/inspections/${id}`)
+  return response.data
+}
+
 export async function fetchInspections(status, page = 1) {
   const params = { page }
   if (status) params.status = status
