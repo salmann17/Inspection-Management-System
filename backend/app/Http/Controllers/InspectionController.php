@@ -108,9 +108,9 @@ class InspectionController extends Controller
             return response()->json(['message' => 'Inspection not found.'], 404);
         }
 
-        $scopeCode  = $inspection->scope_of_work_code;
+        $scopeCode   = $inspection->scope_of_work_code;
         $scopeRecord = MasterData::where('type', 'scope_of_work')->where('code', $scopeCode)->first();
-        $scopeItems  = MasterData::where('type', 'scope_item')->where('parent_code', $scopeCode)->get(['code', 'name']);
+        $scopeItems  = MasterData::where('type', 'scope_item')->where('parent_code', $scopeCode)->get(['code', 'name', 'description']);
 
         $charges = $inspection->charge_to_customer
             ? $inspection->charges->map(fn ($c) => [
@@ -126,13 +126,11 @@ class InspectionController extends Controller
             'id'                        => $inspection->id,
             'inspection_no'             => $inspection->request_no,
             'service_type'              => $inspection->service_type_category,
-            'scope_of_work'             => $scopeCode,
-            'scope_of_work_detail'      => $scopeRecord ? [
-                'code'          => $scopeRecord->code,
-                'name'          => $scopeRecord->name,
-                'description'   => $scopeRecord->description,
-                'included_items' => $scopeItems->map(fn ($s) => ['code' => $s->code, 'name' => $s->name])->values(),
-            ] : null,
+            'scope_of_work'             => $scopeRecord ? [
+                'code'           => $scopeRecord->code,
+                'name'           => $scopeRecord->name,
+                'included_items' => $scopeItems->map(fn ($s) => ['code' => $s->code, 'name' => $s->name, 'description' => $s->description])->values(),
+            ] : ['code' => $scopeCode, 'name' => $scopeCode, 'included_items' => []],
             'location'                  => $inspection->location,
             'estimated_completion_date' => $inspection->estimated_completion_date?->toDateString(),
             'related_to'                => $inspection->related_to,
@@ -159,6 +157,48 @@ class InspectionController extends Controller
                 ]),
             ]),
         ]);
+    }
+
+    public function addCharge(string $id, Request $request)
+    {
+        $inspection = Inspection::where('_id', $id)->first();
+
+        if (!$inspection) {
+            return response()->json(['message' => 'Inspection not found.'], 404);
+        }
+
+        if (!$inspection->charge_to_customer) {
+            return response()->json(['message' => 'Charges are not enabled for this inspection.'], 400);
+        }
+
+        if ($inspection->workflow_status_group === 'COMPLETED') {
+            return response()->json(['message' => 'Cannot add charges to a completed inspection.'], 400);
+        }
+
+        $data = $request->validate([
+            'order_no'            => 'required|string',
+            'service_description' => 'required|string',
+            'qty'                 => 'required|integer|min:1',
+            'unit_price'          => 'required|numeric|min:0',
+        ]);
+
+        InspectionCharge::create([
+            'inspection_id'       => $inspection->id,
+            'order_no'            => $data['order_no'],
+            'service_description' => $data['service_description'],
+            'qty'                 => $data['qty'],
+            'unit_price'          => $data['unit_price'],
+        ]);
+
+        $charges = $inspection->charges()->get()->map(fn ($c) => [
+            'id'                  => $c->id,
+            'order_no'            => $c->order_no,
+            'service_description' => $c->service_description,
+            'qty'                 => $c->qty,
+            'unit_price'          => $c->unit_price,
+        ]);
+
+        return response()->json(['charges' => $charges], 201);
     }
 
     public function updateStatus(string $id, Request $request)
