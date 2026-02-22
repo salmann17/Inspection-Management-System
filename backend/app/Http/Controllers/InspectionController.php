@@ -9,7 +9,6 @@ use App\Models\InspectionLot;
 use App\Models\MasterData;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class InspectionController extends Controller
 {
@@ -254,42 +253,44 @@ class InspectionController extends Controller
             'items.*.lots.*.sample_qty'    => 'integer|min:0',
         ]);
 
-        DB::transaction(function () use ($inspection, $data) {
-            $itemIds = InspectionItem::where('inspection_id', $inspection->id)->pluck('_id');
-            InspectionLot::whereIn('inspection_item_id', $itemIds)->delete();
-            InspectionItem::where('inspection_id', $inspection->id)->delete();
+        $itemIds = InspectionItem::where('inspection_id', $inspection->id)->pluck('_id');
+        InspectionLot::whereIn('inspection_item_id', $itemIds)->delete();
+        InspectionItem::where('inspection_id', $inspection->id)->delete();
 
-            $inspection->service_type_category     = $data['service_type'];
-            $inspection->scope_of_work_code        = $data['scope_of_work'];
-            $inspection->location                  = $data['location'] ?? null;
-            $inspection->estimated_completion_date = $data['estimated_completion_date'] ?? null;
-            $inspection->related_to                = $data['related_to'] ?? null;
-            $inspection->charge_to_customer        = $data['charge_to_customer'];
-            $inspection->customer_name             = $data['customer_name'] ?? null;
-            $inspection->total_items               = count($data['items']);
-            $inspection->total_lots                = collect($data['items'])->sum(fn ($i) => count($i['lots'] ?? []));
-            $inspection->save();
+        if (!$data['charge_to_customer']) {
+            InspectionCharge::where('inspection_id', $inspection->id)->delete();
+        }
 
-            foreach ($data['items'] as $itemData) {
-                $item = InspectionItem::create([
-                    'inspection_id' => $inspection->_id,
-                    'item_name'     => $itemData['description'],
-                    'qty_required'  => $itemData['qty_required'],
+        $inspection->service_type_category     = $data['service_type'];
+        $inspection->scope_of_work_code        = $data['scope_of_work'];
+        $inspection->location                  = $data['location'] ?? null;
+        $inspection->estimated_completion_date = $data['estimated_completion_date'] ?? null;
+        $inspection->related_to                = $data['related_to'] ?? null;
+        $inspection->charge_to_customer        = $data['charge_to_customer'];
+        $inspection->customer_name             = $data['customer_name'] ?? null;
+        $inspection->total_items               = count($data['items']);
+        $inspection->total_lots                = collect($data['items'])->sum(fn ($i) => count($i['lots'] ?? []));
+        $inspection->save();
+
+        foreach ($data['items'] as $itemData) {
+            $item = InspectionItem::create([
+                'inspection_id' => $inspection->_id,
+                'item_name'     => $itemData['description'],
+                'qty_required'  => $itemData['qty_required'],
+            ]);
+
+            foreach ($itemData['lots'] ?? [] as $lotData) {
+                InspectionLot::create([
+                    'inspection_item_id' => $item->_id,
+                    'lot'                => $lotData['lot'] ?? null,
+                    'allocation'         => $lotData['allocation'] ?? null,
+                    'owner'              => $lotData['owner'] ?? null,
+                    'condition'          => $lotData['condition'] ?? null,
+                    'available_qty'      => $lotData['available_qty'] ?? 0,
+                    'sample_qty'         => $lotData['sample_qty'] ?? 0,
                 ]);
-
-                foreach ($itemData['lots'] ?? [] as $lotData) {
-                    InspectionLot::create([
-                        'inspection_item_id' => $item->_id,
-                        'lot'                => $lotData['lot'] ?? null,
-                        'allocation'         => $lotData['allocation'] ?? null,
-                        'owner'              => $lotData['owner'] ?? null,
-                        'condition'          => $lotData['condition'] ?? null,
-                        'available_qty'      => $lotData['available_qty'] ?? 0,
-                        'sample_qty'         => $lotData['sample_qty'] ?? 0,
-                    ]);
-                }
             }
-        });
+        }
 
         $inspection->load('items.lots');
 

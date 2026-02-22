@@ -4,11 +4,14 @@ namespace App\Models;
 
 use App\Models\InspectionCharge;
 use App\Models\InspectionItem;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use InvalidArgumentException;
 use MongoDB\Laravel\Eloquent\Model;
 
 class Inspection extends Model
 {
+    use HasFactory;
+
     protected $connection = 'mongodb';
     protected $collection = 'inspections';
 
