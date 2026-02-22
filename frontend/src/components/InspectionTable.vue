@@ -12,6 +12,7 @@
           <th class="center">Lots</th>
           <th>Created By</th>
           <th>Created At</th>
+          <th></th>
         </tr>
       </thead>
       <tbody v-for="row in inspections" :key="row.id">
@@ -28,11 +29,14 @@
           <td class="center">{{ row.total_lots }}</td>
           <td>{{ row.created_by }}</td>
           <td>{{ formatDate(row.created_at) }}</td>
+          <td class="action-col" @click.stop>
+            <button class="btn-detail" @click="router.push('/inspections/' + row.id)">Detail</button>
+          </td>
         </tr>
 
         <!-- Expanded row -->
         <tr v-if="expandedId === row.id" class="expand-row">
-          <td colspan="9" class="expand-cell">
+          <td colspan="10" class="expand-cell">
             <div class="expand-content">
               <p v-if="!row.items || row.items.length === 0" class="no-items">
                 No items in this inspection.
@@ -44,9 +48,6 @@
                   <div class="item-header">
                     <span class="item-name">{{ item.item_name }}</span>
                     <span class="item-meta">{{ item.item_category }} · Qty Required: {{ item.qty_required }}</span>
-                    <span class="progress-pill" :style="progressStyle(calcProgress(item))">
-                      {{ calcProgress(item) }}%
-                    </span>
                   </div>
 
                   <!-- Lots table -->
@@ -58,7 +59,6 @@
                         <th>Allocation</th>
                         <th>Condition</th>
                         <th class="center">Sample Qty</th>
-                        <th>Progress</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -68,14 +68,6 @@
                         <td>{{ lot.allocation }}</td>
                         <td>{{ lot.condition }}</td>
                         <td class="center">{{ lot.sample_qty }}</td>
-                        <td>
-                          <div class="progress-bar-wrap">
-                            <div
-                              class="progress-bar-fill"
-                              :style="{ width: Math.min(100, Math.round((lot.sample_qty / item.qty_required) * 100)) + '%' }"
-                            />
-                          </div>
-                        </td>
                       </tr>
                     </tbody>
                   </table>
@@ -92,7 +84,10 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import StatusBadge from './StatusBadge.vue'
+
+const router = useRouter()
 
 defineProps({
   inspections: { type: Array, required: true },
@@ -102,18 +97,6 @@ const expandedId = ref(null)
 
 function toggle(id) {
   expandedId.value = expandedId.value === id ? null : id
-}
-
-function calcProgress(item) {
-  if (!item.lots || item.lots.length === 0 || !item.qty_required) return 0
-  const total = item.lots.reduce((sum, l) => sum + (l.sample_qty || 0), 0)
-  return Math.min(100, Math.round((total / item.qty_required) * 100))
-}
-
-function progressStyle(pct) {
-  if (pct >= 100) return 'background:#dcfce7;color:#15803d'
-  if (pct >= 50)  return 'background:#fef9c3;color:#854d0e'
-  return 'background:#fee2e2;color:#dc2626'
 }
 
 function formatDate(val) {
@@ -246,14 +229,6 @@ th {
   color: #64748b;
 }
 
-.progress-pill {
-  margin-left: auto;
-  padding: 2px 10px;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
 /* Lots sub-table */
 .lots-table {
   width: 100%;
@@ -290,20 +265,25 @@ th {
   color: #334155;
 }
 
-/* Progress bar */
-.progress-bar-wrap {
-  height: 6px;
-  background: #e2e8f0;
-  border-radius: 4px;
-  overflow: hidden;
-  min-width: 80px;
+.action-col {
+  width: 80px;
+  text-align: center;
 }
 
-.progress-bar-fill {
-  height: 100%;
-  background: #1d4ed8;
-  border-radius: 4px;
-  transition: width 0.3s ease;
+.btn-detail {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #2563eb;
+  border-radius: 5px;
+  background: #fff;
+  color: #2563eb;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-detail:hover {
+  background: #eff6ff;
 }
 
 .no-items {
