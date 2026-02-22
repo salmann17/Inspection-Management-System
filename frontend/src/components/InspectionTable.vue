@@ -30,6 +30,11 @@
           <td>{{ row.created_by }}</td>
           <td>{{ formatDate(row.created_at) }}</td>
           <td class="action-col" @click.stop>
+            <button
+              v-if="row.workflow_status_group === 'OPEN'"
+              class="btn-edit"
+              @click="router.push('/inspections/' + row.id + '/edit')"
+            >Edit</button>
             <button class="btn-detail" @click="router.push('/inspections/' + row.id)">Detail</button>
           </td>
         </tr>
@@ -266,8 +271,26 @@ th {
 }
 
 .action-col {
-  width: 80px;
+  width: 140px;
   text-align: center;
+  white-space: nowrap;
+}
+
+.btn-edit {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #f59e0b;
+  border-radius: 5px;
+  background: #fff;
+  color: #f59e0b;
+  cursor: pointer;
+  white-space: nowrap;
+  margin-right: 6px;
+}
+
+.btn-edit:hover {
+  background: #fffbeb;
 }
 
 .btn-detail {

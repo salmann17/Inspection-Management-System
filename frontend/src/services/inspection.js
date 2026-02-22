@@ -32,3 +32,8 @@ export async function fetchInspections(status, page = 1) {
   const response = await api.get('/inspections', { params })
   return response.data
 }
+
+export async function updateInspection(id, payload) {
+  const response = await api.put(`/inspections/${id}`, payload)
+  return response.data
+}
