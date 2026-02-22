@@ -73,6 +73,22 @@
         </div>
       </div>
 
+      <!-- Scope of Work Card -->
+      <div class="card">
+        <h2 class="section-title">Scope of Work</h2>
+        <div class="field" style="margin-bottom: 16px;">
+          <label>Scope of Work</label>
+          <span>{{ inspection.scope_of_work || '—' }}</span>
+        </div>
+        <div class="field">
+          <label>Scope Included</label>
+          <div v-if="scopeItems.length > 0" class="tags">
+            <span v-for="item in scopeItems" :key="item.code" class="tag">{{ item.name }}</span>
+          </div>
+          <span v-else class="text-muted">—</span>
+        </div>
+      </div>
+
       <!-- Items Card -->
       <div class="card">
         <h2 class="section-title">Order Items</h2>
@@ -126,13 +142,20 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import StatusBadge from '../components/StatusBadge.vue'
 import { fetchInspectionDetail, updateInspectionStatus } from '../services/inspection'
+import { fetchMasterData } from '../services/inspection'
 
 const route           = useRoute()
 const loading         = ref(true)
 const error           = ref(null)
 const inspection      = ref(null)
+const allScopeItems   = ref([])
 const transitioning   = ref(false)
 const transitionError = ref(null)
+
+const scopeItems = computed(() => {
+  if (!inspection.value) return []
+  return allScopeItems.value.filter(s => s.parent_code === inspection.value.scope_of_work)
+})
 
 const TRANSITIONS = {
   OPEN:       { label: 'Submit for Review', next: 'FOR_REVIEW' },
@@ -145,7 +168,12 @@ const transitionAction = computed(() =>
 
 async function loadInspection() {
   try {
-    inspection.value = await fetchInspectionDetail(route.params.id)
+    const [detail, master] = await Promise.all([
+      fetchInspectionDetail(route.params.id),
+      fetchMasterData(),
+    ])
+    inspection.value  = detail
+    allScopeItems.value = master.scope_items ?? []
   } catch (err) {
     error.value = err.response?.status === 404
       ? 'Inspection not found.'
@@ -357,6 +385,29 @@ onMounted(loadInspection)
 
 .btn-secondary:hover {
   background: #f3f4f6;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.tag {
+  display: inline-block;
+  padding: 3px 12px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.text-muted {
+  font-size: 14px;
+  color: #9ca3af;
 }
 
 .btn-primary {
