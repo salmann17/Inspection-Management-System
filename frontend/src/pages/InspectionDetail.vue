@@ -48,7 +48,7 @@
           </div>
           <div class="field">
             <label>Scope of Work</label>
-            <span>{{ inspection.scope_of_work || '—' }}</span>
+            <span>{{ inspection.scope_of_work?.name || '—' }}</span>
           </div>
           <div class="field">
             <label>Location</label>
@@ -76,16 +76,82 @@
       <!-- Scope of Work Card -->
       <div class="card">
         <h2 class="section-title">Scope of Work</h2>
-        <div class="field" style="margin-bottom: 16px;">
-          <label>Scope of Work</label>
-          <span>{{ inspection.scope_of_work || '—' }}</span>
-        </div>
-        <div class="field">
-          <label>Scope Included</label>
-          <div v-if="scopeItems.length > 0" class="tags">
-            <span v-for="item in scopeItems" :key="item.code" class="tag">{{ item.name }}</span>
+        <template v-if="inspection.scope_of_work">
+          <div class="sow-name">{{ inspection.scope_of_work.name }}</div>
+          <div class="field" style="margin-top: 16px;">
+            <label>Scope Included</label>
+            <div v-if="inspection.scope_of_work.included_items?.length" class="scope-items-list">
+              <div
+                v-for="item in inspection.scope_of_work.included_items"
+                :key="item.code"
+                class="scope-item-card"
+              >
+                <div class="scope-item-name">{{ item.name }}</div>
+                <div v-if="item.description" class="scope-item-desc">{{ item.description }}</div>
+              </div>
+            </div>
+            <span v-else class="text-muted">—</span>
           </div>
-          <span v-else class="text-muted">—</span>
+        </template>
+        <span v-else class="text-muted">—</span>
+      </div>
+
+      <!-- Charges to Customer Card -->
+      <div v-if="inspection.charge_to_customer" class="card">
+        <h2 class="section-title">Charges to Customer</h2>
+
+        <div v-if="inspection.charges && inspection.charges.length > 0" class="charge-table-wrap">
+          <table class="charge-table">
+            <thead>
+              <tr>
+                <th>Order No</th>
+                <th>Service Description</th>
+                <th class="num">Qty</th>
+                <th class="num">Unit Price</th>
+                <th class="num">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="charge in inspection.charges" :key="charge.id">
+                <td>{{ charge.order_no || '—' }}</td>
+                <td>{{ charge.service_description || '—' }}</td>
+                <td class="num">{{ charge.qty }}</td>
+                <td class="num">{{ formatCurrency(charge.unit_price) }}</td>
+                <td class="num">{{ formatCurrency(charge.qty * charge.unit_price) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p v-else class="text-muted" style="margin: 0 0 16px;">No charges recorded yet.</p>
+
+        <!-- Add Charge Form -->
+        <div v-if="inspection.workflow_status_group !== 'COMPLETED'" class="add-charge-section">
+          <h3 class="subsection-title">Add Charge</h3>
+          <div v-if="chargeError" class="banner-error" style="margin-bottom: 12px;">{{ chargeError }}</div>
+          <div class="charge-form">
+            <div class="charge-field">
+              <label>Order No</label>
+              <input v-model="chargeForm.order_no" type="text" placeholder="e.g. ORD-001" />
+            </div>
+            <div class="charge-field charge-field-wide">
+              <label>Service Description</label>
+              <input v-model="chargeForm.service_description" type="text" placeholder="Description" />
+            </div>
+            <div class="charge-field">
+              <label>Qty</label>
+              <input v-model.number="chargeForm.qty" type="number" min="1" />
+            </div>
+            <div class="charge-field">
+              <label>Unit Price</label>
+              <input v-model.number="chargeForm.unit_price" type="number" min="0" step="0.01" />
+            </div>
+            <div class="charge-field charge-field-btn">
+              <button class="btn-primary" :disabled="addingCharge" @click="submitCharge">
+                <span v-if="addingCharge" class="spinner spinner-sm" />
+                Add
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -141,20 +207,22 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import StatusBadge from '../components/StatusBadge.vue'
-import { fetchInspectionDetail, updateInspectionStatus } from '../services/inspection'
-import { fetchMasterData } from '../services/inspection'
+import { fetchInspectionDetail, updateInspectionStatus, addInspectionCharge } from '../services/inspection'
 
 const route           = useRoute()
 const loading         = ref(true)
 const error           = ref(null)
 const inspection      = ref(null)
-const allScopeItems   = ref([])
 const transitioning   = ref(false)
 const transitionError = ref(null)
+const addingCharge    = ref(false)
+const chargeError     = ref(null)
 
-const scopeItems = computed(() => {
-  if (!inspection.value) return []
-  return allScopeItems.value.filter(s => s.parent_code === inspection.value.scope_of_work)
+const chargeForm = ref({
+  order_no: '',
+  service_description: '',
+  qty: 1,
+  unit_price: 0,
 })
 
 const TRANSITIONS = {
@@ -168,12 +236,7 @@ const transitionAction = computed(() =>
 
 async function loadInspection() {
   try {
-    const [detail, master] = await Promise.all([
-      fetchInspectionDetail(route.params.id),
-      fetchMasterData(),
-    ])
-    inspection.value  = detail
-    allScopeItems.value = master.scope_items ?? []
+    inspection.value = await fetchInspectionDetail(route.params.id)
   } catch (err) {
     error.value = err.response?.status === 404
       ? 'Inspection not found.'
@@ -197,6 +260,25 @@ async function doTransition() {
 }
 
 onMounted(loadInspection)
+
+async function submitCharge() {
+  chargeError.value = null
+  addingCharge.value = true
+  try {
+    const result = await addInspectionCharge(route.params.id, chargeForm.value)
+    inspection.value.charges = result.charges
+    chargeForm.value = { order_no: '', service_description: '', qty: 1, unit_price: 0 }
+  } catch (err) {
+    chargeError.value = err.response?.data?.message || 'Failed to add charge. Please try again.'
+  } finally {
+    addingCharge.value = false
+  }
+}
+
+function formatCurrency(val) {
+  if (val == null) return '—'
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val)
+}
 </script>
 
 <style scoped>
@@ -410,6 +492,76 @@ onMounted(loadInspection)
   color: #9ca3af;
 }
 
+.sow-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 6px;
+}
+
+.scope-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.scope-item-card {
+  padding: 10px 14px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.scope-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1d4ed8;
+}
+
+.scope-item-desc {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 3px;
+  line-height: 1.5;
+}
+
+.charge-table-wrap {
+  overflow-x: auto;
+}
+
+.charge-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.charge-table th {
+  background: #f3f4f6;
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #6b7280;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.charge-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f3f4f6;
+  color: #374151;
+}
+
+.charge-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.charge-table .num {
+  text-align: right;
+}
+
 .btn-primary {
   display: inline-flex;
   align-items: center;
@@ -449,5 +601,62 @@ onMounted(loadInspection)
   padding: 10px 16px;
   font-size: 13px;
   margin-bottom: 16px;
+}
+
+.add-charge-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.subsection-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 12px;
+}
+
+.charge-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.charge-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 120px;
+}
+
+.charge-field label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #9ca3af;
+}
+
+.charge-field input {
+  padding: 7px 10px;
+  font-size: 13px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  outline: none;
+}
+
+.charge-field input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37,99,235,0.15);
+}
+
+.charge-field-wide {
+  flex: 1;
+  min-width: 200px;
+}
+
+.charge-field-btn {
+  min-width: auto;
 }
 </style>
