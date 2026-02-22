@@ -1,0 +1,183 @@
+{
+  "info": {
+    "_postman_id": "0fb608f7-be7f-4b55-980b-a6255ce2f1e7",
+    "name": "Inspection Management System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Inspection",
+      "id": "ada6eaa9-51fa-460b-9641-1b2b2f61a498",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"service_type\": \"NEW_ARRIVAL\",\r\n  \"scope_of_work\": \"SOW-NA-001\",\r\n  \"location\": \"Warehouse A\",\r\n  \"estimated_completion_date\": \"2025-01-20\",\r\n  \"related_to\": \"PO-12345\",\r\n  \"charge_to_customer\": true,\r\n  \"customer_name\": \"Chevron\",\r\n  \"items\": [\r\n    {\r\n      \"description\": \"Carbon Steel Pipe\",\r\n      \"qty_required\": 10,\r\n      \"lots\": [\r\n        {\r\n          \"lot\": \"LOT-10001\",\r\n          \"allocation\": \"PROJECT-ALPHA\",\r\n          \"owner\": \"CHEVRON\",\r\n          \"condition\": \"NEW\",\r\n          \"sample_qty\": 5\r\n        }\r\n      ]\r\n    }\r\n  ]\r\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/inspections",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8000",
+          "path": [
+            "api",
+            "inspections"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Inspection Detail",
+      "id": "e4d4f592-ca3e-46cc-ab06-b4151f84ef2b",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8000/api/inspections/699ae618303358db25029642",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8000",
+          "path": [
+            "api",
+            "inspections",
+            "699ae618303358db25029642"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Edit Inspection",
+      "id": "0f80cf24-9e90-4d50-bccf-107a6c318e18",
+      "request": {
+        "method": "PUT",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"id\": \"699ae618303358db25029642\",\r\n    \"inspection_no\": \"INS-20260222-0005\",\r\n    \"service_type\": \"NEW_ARRIVAL\",\r\n    \"scope_of_work\": {\r\n        \"code\": \"SOW-NA-001\",\r\n        \"name\": \"Inbound Quality Inspection\",\r\n        \"included_items\": [\r\n            {\r\n                \"code\": \"SI-NA001-01\",\r\n                \"name\": \"Visual Thread\",\r\n                \"description\": \"Inspect thread profile, pitch, and connection integrity for damage or defects.\"\r\n            },\r\n            {\r\n                \"code\": \"SI-NA001-02\",\r\n                \"name\": \"Visual Body\",\r\n                \"description\": \"Check pipe body surface for dents, corrosion, and coating defects.\"\r\n            },\r\n            {\r\n                \"code\": \"SI-NA001-03\",\r\n                \"name\": \"Full Length Drift\",\r\n                \"description\": \"Run drift mandrel through full pipe length to verify internal diameter.\"\r\n            },\r\n            {\r\n                \"code\": \"SI-NA001-04\",\r\n                \"name\": \"End Protectors Check\",\r\n                \"description\": \"Verify thread protectors are installed and free from damage.\"\r\n            }\r\n        ]\r\n    },\r\n    \"location\": \"testing\",\r\n    \"estimated_completion_date\": \"2027-01-01\",\r\n    \"related_to\": \"test\",\r\n    \"charge_to_customer\": true,\r\n    \"customer_name\": \"testing\",\r\n    \"charges\": [],\r\n    \"status\": \"NEW\",\r\n    \"workflow_status_group\": \"OPEN\",\r\n    \"total_items\": 1,\r\n    \"total_lots\": 1,\r\n    \"created_at\": \"2026-02-22 11:18:48\",\r\n    \"items\": [\r\n        {\r\n            \"id\": \"699ae618303358db25029643\",\r\n            \"description\": \"test\",\r\n            \"qty_required\": 10,\r\n            \"lots\": [\r\n                {\r\n                    \"id\": \"699ae618303358db25029644\",\r\n                    \"lot\": \"LOT-00016\",\r\n                    \"allocation\": \"PROJECT-GAMMA\",\r\n                    \"owner\": \"OWNER-CLIENT-A\",\r\n                    \"condition\": \"FAIR\",\r\n                    \"available_qty\": 351,\r\n                    \"sample_qty\": 10\r\n                }\r\n            ]\r\n        }\r\n    ]\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/inspections/699ae618303358db25029642",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8000",
+          "path": [
+            "api",
+            "inspections",
+            "699ae618303358db25029642"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Add Charge",
+      "id": "55ac3e87-94d6-484a-be69-51292b796865",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"order_no\": \"OD-001\",\r\n  \"service_description\": \"Inspection Service\",\r\n  \"qty\": 5,\r\n  \"unit_price\": 100\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/inspections/699ae618303358db25029642/charges",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8000",
+          "path": [
+            "api",
+            "inspections",
+            "699ae618303358db25029642",
+            "charges"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Submit For Review",
+      "id": "64a7c7c0-4f41-4dce-bbc2-93ec7e4254c2",
+      "request": {
+        "method": "PATCH",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"status\": \"FOR_REVIEW\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/inspections/699ae618303358db25029642/status",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8000",
+          "path": [
+            "api",
+            "inspections",
+            "699ae618303358db25029642",
+            "status"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "New Request",
+      "id": "721fd7be-d0ef-43d9-bdbd-2d1cf98978ca",
+      "request": {
+        "method": "PATCH",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"status\": \"COMPLETED\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/inspections/699ae618303358db25029642/status",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8000",
+          "path": [
+            "api",
+            "inspections",
+            "699ae618303358db25029642",
+            "status"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
