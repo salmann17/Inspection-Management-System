@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Inspection;
+use App\Models\InspectionCharge;
 use App\Models\InspectionItem;
 use App\Models\InspectionLot;
+use App\Models\MasterData;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -106,16 +108,37 @@ class InspectionController extends Controller
             return response()->json(['message' => 'Inspection not found.'], 404);
         }
 
+        $scopeCode  = $inspection->scope_of_work_code;
+        $scopeRecord = MasterData::where('type', 'scope_of_work')->where('code', $scopeCode)->first();
+        $scopeItems  = MasterData::where('type', 'scope_item')->where('parent_code', $scopeCode)->get(['code', 'name']);
+
+        $charges = $inspection->charge_to_customer
+            ? $inspection->charges->map(fn ($c) => [
+                'id'                  => $c->id,
+                'order_no'            => $c->order_no,
+                'service_description' => $c->service_description,
+                'qty'                 => $c->qty,
+                'unit_price'          => $c->unit_price,
+            ])
+            : [];
+
         return response()->json([
             'id'                        => $inspection->id,
             'inspection_no'             => $inspection->request_no,
             'service_type'              => $inspection->service_type_category,
-            'scope_of_work'             => $inspection->scope_of_work_code,
+            'scope_of_work'             => $scopeCode,
+            'scope_of_work_detail'      => $scopeRecord ? [
+                'code'          => $scopeRecord->code,
+                'name'          => $scopeRecord->name,
+                'description'   => $scopeRecord->description,
+                'included_items' => $scopeItems->map(fn ($s) => ['code' => $s->code, 'name' => $s->name])->values(),
+            ] : null,
             'location'                  => $inspection->location,
             'estimated_completion_date' => $inspection->estimated_completion_date?->toDateString(),
             'related_to'                => $inspection->related_to,
             'charge_to_customer'        => $inspection->charge_to_customer,
             'customer_name'             => $inspection->customer_name,
+            'charges'                   => $charges,
             'status'                    => $inspection->status,
             'workflow_status_group'     => $inspection->workflow_status_group,
             'total_items'               => $inspection->total_items,

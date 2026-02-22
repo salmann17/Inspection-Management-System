@@ -13,6 +13,7 @@ class MasterData extends Model
         'type',
         'code',
         'name',
+        'description',
         'parent_code',
         'meta',
         'is_active',

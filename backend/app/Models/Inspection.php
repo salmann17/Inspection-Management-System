@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\InspectionCharge;
+use App\Models\InspectionItem;
 use InvalidArgumentException;
 use MongoDB\Laravel\Eloquent\Model;
 
@@ -110,6 +112,11 @@ class Inspection extends Model
     public function items()
     {
         return $this->hasMany(InspectionItem::class, 'inspection_id');
+    }
+
+    public function charges()
+    {
+        return $this->hasMany(InspectionCharge::class, 'inspection_id');
     }
 
     public function isEditable(): bool

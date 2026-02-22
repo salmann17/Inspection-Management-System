@@ -30,16 +30,16 @@ class MasterDataSeeder extends Seeder
             ['type' => 'service_type_category', 'code' => 'ON_SPOT',     'name' => 'On Spot',      'parent_code' => null, 'is_active' => true],
 
             // Scope of Work → parent_code menghubungkan ke service_type_category
-            ['type' => 'scope_of_work', 'code' => 'SOW-NA-001', 'name' => 'Inbound Quality Inspection',   'parent_code' => 'NEW_ARRIVAL', 'is_active' => true],
-            ['type' => 'scope_of_work', 'code' => 'SOW-NA-002', 'name' => 'Documentation Verification',   'parent_code' => 'NEW_ARRIVAL', 'is_active' => true],
-            ['type' => 'scope_of_work', 'code' => 'SOW-NA-003', 'name' => 'Packaging Integrity Check',    'parent_code' => 'NEW_ARRIVAL', 'is_active' => true],
-            ['type' => 'scope_of_work', 'code' => 'SOW-NA-004', 'name' => 'Quantity Verification',        'parent_code' => 'NEW_ARRIVAL', 'is_active' => true],
-            ['type' => 'scope_of_work', 'code' => 'SOW-MT-001', 'name' => 'Preventive Maintenance Check', 'parent_code' => 'MAINTENANCE', 'is_active' => true],
-            ['type' => 'scope_of_work', 'code' => 'SOW-MT-002', 'name' => 'Corrective Repair Inspection', 'parent_code' => 'MAINTENANCE', 'is_active' => true],
-            ['type' => 'scope_of_work', 'code' => 'SOW-MT-003', 'name' => 'Calibration Verification',     'parent_code' => 'MAINTENANCE', 'is_active' => true],
-            ['type' => 'scope_of_work', 'code' => 'SOW-OS-001', 'name' => 'Visual Spot Check',            'parent_code' => 'ON_SPOT',     'is_active' => true],
-            ['type' => 'scope_of_work', 'code' => 'SOW-OS-002', 'name' => 'Functional Spot Test',         'parent_code' => 'ON_SPOT',     'is_active' => true],
-            ['type' => 'scope_of_work', 'code' => 'SOW-OS-003', 'name' => 'Safety Compliance Check',      'parent_code' => 'ON_SPOT',     'is_active' => true],
+            ['type' => 'scope_of_work', 'code' => 'SOW-NA-001', 'name' => 'Inbound Quality Inspection',   'description' => 'Full incoming inspection for new arrival items covering physical, document, and quantity checks.',   'parent_code' => 'NEW_ARRIVAL', 'is_active' => true],
+            ['type' => 'scope_of_work', 'code' => 'SOW-NA-002', 'name' => 'Documentation Verification',   'description' => 'Verification of all documents accompanying new arrival shipments.',                                'parent_code' => 'NEW_ARRIVAL', 'is_active' => true],
+            ['type' => 'scope_of_work', 'code' => 'SOW-NA-003', 'name' => 'Packaging Integrity Check',    'description' => 'Assessment of outer and inner packaging condition to ensure product protection.',                  'parent_code' => 'NEW_ARRIVAL', 'is_active' => true],
+            ['type' => 'scope_of_work', 'code' => 'SOW-NA-004', 'name' => 'Quantity Verification',        'description' => 'Physical count and weight measurement to confirm ordered quantities.',                             'parent_code' => 'NEW_ARRIVAL', 'is_active' => true],
+            ['type' => 'scope_of_work', 'code' => 'SOW-MT-001', 'name' => 'Preventive Maintenance Check', 'description' => 'Scheduled inspection to prevent failures through lubrication, torque, and wear assessments.',     'parent_code' => 'MAINTENANCE', 'is_active' => true],
+            ['type' => 'scope_of_work', 'code' => 'SOW-MT-002', 'name' => 'Corrective Repair Inspection', 'description' => 'Assessment of items requiring corrective action including crack detection and surface checks.',    'parent_code' => 'MAINTENANCE', 'is_active' => true],
+            ['type' => 'scope_of_work', 'code' => 'SOW-MT-003', 'name' => 'Calibration Verification',     'description' => 'Verification of measuring instruments and gauges to ensure accurate readings.',                    'parent_code' => 'MAINTENANCE', 'is_active' => true],
+            ['type' => 'scope_of_work', 'code' => 'SOW-OS-001', 'name' => 'Visual Spot Check',            'description' => 'On-the-spot visual inspection of threads, body, and surface coating condition.',                  'parent_code' => 'ON_SPOT',     'is_active' => true],
+            ['type' => 'scope_of_work', 'code' => 'SOW-OS-002', 'name' => 'Functional Spot Test',         'description' => 'Field testing of operational components such as valves, actuators, and leak seals.',               'parent_code' => 'ON_SPOT',     'is_active' => true],
+            ['type' => 'scope_of_work', 'code' => 'SOW-OS-003', 'name' => 'Safety Compliance Check',      'description' => 'On-site verification of safety standards including grounding, labeling, and fire compliance.',     'parent_code' => 'ON_SPOT',     'is_active' => true],
 
             // Inspection Types
             ['type' => 'inspection_type', 'code' => 'VISUAL',      'name' => 'Visual Inspection',      'parent_code' => null, 'is_active' => true],
