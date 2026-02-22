@@ -96,6 +96,50 @@
         <span v-else class="text-muted">—</span>
       </div>
 
+      <!-- Items Card -->
+      <div class="card">
+        <h2 class="section-title">Order Items</h2>
+
+        <div v-if="inspection.items.length === 0" class="state-box">
+          No items found.
+        </div>
+
+        <div v-for="(item, idx) in inspection.items" :key="item.id" class="item-block">
+          <div class="item-header">
+            <span class="item-index">#{{ idx + 1 }}</span>
+            <span class="item-name">{{ item.description }}</span>
+            <span class="item-qty">Qty Required: <strong>{{ item.qty_required }}</strong></span>
+          </div>
+
+          <div v-if="item.lots && item.lots.length > 0" class="lot-table-wrap">
+            <table class="lot-table">
+              <thead>
+                <tr>
+                  <th>Lot</th>
+                  <th>Allocation</th>
+                  <th>Owner</th>
+                  <th>Condition</th>
+                  <th>Available Qty</th>
+                  <th>Sample Qty</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="lot in item.lots" :key="lot.id">
+                  <td>{{ lot.lot || '—' }}</td>
+                  <td>{{ lot.allocation || '—' }}</td>
+                  <td>{{ lot.owner || '—' }}</td>
+                  <td>{{ lot.condition || '—' }}</td>
+                  <td>{{ lot.available_qty ?? '—' }}</td>
+                  <td>{{ lot.sample_qty ?? '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p v-else class="no-lots">No lots assigned.</p>
+        </div>
+      </div>
+
       <!-- Charges to Customer Card -->
       <div v-if="inspection.charge_to_customer" class="card">
         <h2 class="section-title">Charges to Customer</h2>
@@ -155,61 +199,18 @@
         </div>
       </div>
 
-      <!-- Items Card -->
-      <div class="card">
-        <h2 class="section-title">Order Items</h2>
-
-        <div v-if="inspection.items.length === 0" class="state-box">
-          No items found.
-        </div>
-
-        <div v-for="(item, idx) in inspection.items" :key="item.id" class="item-block">
-          <div class="item-header">
-            <span class="item-index">#{{ idx + 1 }}</span>
-            <span class="item-name">{{ item.description }}</span>
-            <span class="item-qty">Qty Required: <strong>{{ item.qty_required }}</strong></span>
-          </div>
-
-          <div v-if="item.lots && item.lots.length > 0" class="lot-table-wrap">
-            <table class="lot-table">
-              <thead>
-                <tr>
-                  <th>Lot</th>
-                  <th>Allocation</th>
-                  <th>Owner</th>
-                  <th>Condition</th>
-                  <th>Available Qty</th>
-                  <th>Sample Qty</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="lot in item.lots" :key="lot.id">
-                  <td>{{ lot.lot || '—' }}</td>
-                  <td>{{ lot.allocation || '—' }}</td>
-                  <td>{{ lot.owner || '—' }}</td>
-                  <td>{{ lot.condition || '—' }}</td>
-                  <td>{{ lot.available_qty ?? '—' }}</td>
-                  <td>{{ lot.sample_qty ?? '—' }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <p v-else class="no-lots">No lots assigned.</p>
-        </div>
-      </div>
-
     </template>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import StatusBadge from '../components/StatusBadge.vue'
 import { fetchInspectionDetail, updateInspectionStatus, addInspectionCharge } from '../services/inspection'
 
 const route           = useRoute()
+const router          = useRouter()
 const loading         = ref(true)
 const error           = ref(null)
 const inspection      = ref(null)
@@ -251,10 +252,9 @@ async function doTransition() {
   transitioning.value = true
   try {
     await updateInspectionStatus(route.params.id, transitionAction.value.next)
-    await loadInspection()
+    router.push('/inspections')
   } catch {
     transitionError.value = 'Failed to update status. Please try again.'
-  } finally {
     transitioning.value = false
   }
 }
